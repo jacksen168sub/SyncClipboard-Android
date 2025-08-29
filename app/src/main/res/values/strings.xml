@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">剪贴板同步</string>
+    
+    <!-- Main Screen -->
+    <string name="title_clipboard_sync">剪贴板同步</string>
+    <string name="status_connected">已连接</string>
+    <string name="status_disconnected">已断开</string>
+    <string name="status_syncing">同步中…</string>
+    <string name="last_sync_time">最后同步: %s</string>
+    
+    <!-- Clipboard Content -->
+    <string name="clipboard_empty">剪贴板为空</string>
+    <string name="clipboard_text">文本</string>
+    <string name="clipboard_image">图片</string>
+    <string name="clipboard_file">文件(暂不支持,作为文本复制文件名)</string>
+    <string name="copy_to_clipboard">复制到剪贴板</string>
+    <string name="copied">已复制</string>
+    
+    <!-- Settings -->
+    <string name="settings">设置</string>
+    <string name="server_settings">服务器设置</string>
+    <string name="server_url">服务器地址</string>
+    <string name="server_url_hint">http://192.168.1.10:5033</string>
+    <string name="username">用户名</string>
+    <string name="username_hint">输入用户名</string>
+    <string name="password">密码</string>
+    <string name="password_hint">输入密码</string>
+    <string name="test_connection">测试连接</string>
+    <string name="save_settings">保存设置</string>
+    
+    <!-- Sync Settings -->
+    <string name="sync_settings">同步设置</string>
+    <string name="auto_sync">自动同步</string>
+    <string name="auto_sync_desc">剪贴板内容变化时自动同步</string>
+    <string name="sync_interval">同步间隔</string>
+    <string name="sync_interval_desc">定期检查服务器更新的时间间隔</string>
+    <string name="sync_on_boot">启动时自动开启服务</string>
+    <string name="sync_on_boot_desc">应用启动时自动开启剪贴板同步服务</string>
+    
+    <!-- Notification -->
+    <string name="notification_channel_name">剪贴板同步</string>
+    <string name="notification_channel_desc">显示剪贴板同步状态</string>
+    <string name="notification_service_running">剪贴板同步服务正在运行</string>
+    <string name="notification_synced">剪贴板已同步</string>
+    <string name="notification_sync_failed">同步失败</string>
+    
+    <!-- Errors -->
+    <string name="error_connection_failed">连接失败</string>
+    <string name="error_auth_failed">认证失败</string>
+    <string name="error_network_unavailable">网络不可用</string>
+    <string name="error_server_error">服务器错误</string>
+    <string name="error_clipboard_access">无法访问剪贴板</string>
+    <string name="error_permission_denied">权限被拒绝</string>
+    
+    <!-- Permissions -->
+    <string name="permission_notification_title">通知权限</string>
+    <string name="permission_notification_desc">需要通知权限来显示同步状态</string>
+    <string name="permission_battery_title">电池优化</string>
+    <string name="permission_battery_desc">请允许应用在后台运行以保持同步</string>
+    <string name="grant_permission">授予权限</string>
+    <string name="skip">先不设置</string>
+    
+    <!-- Common -->
+    <string name="ok">确定</string>
+    <string name="cancel">取消</string>
+    <string name="retry">重试</string>
+    <string name="loading">加载中…</string>
+    <string name="refresh">刷新</string>
+    <string name="delete">删除</string>
+    <string name="share">分享</string>
+    
+    <!-- Time formats -->
+    <string name="time_now">刚刚</string>
+    <string name="time_minutes_ago">%d分钟前</string>
+    <string name="time_hours_ago">%d小时前</string>
+    <string name="time_days_ago">%d天前</string>
+</resources>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Flutter Material Design Colors -->
+    <!-- Primary Colors -->
+    <color name="primary_50">#E8F5E8</color>
+    <color name="primary_100">#C8E6C9</color>
+    <color name="primary_200">#A5D6A7</color>
+    <color name="primary_300">#81C784</color>
+    <color name="primary_400">#66BB6A</color>
+    <color name="primary_500">#4CAF50</color>
+    <color name="primary_600">#43A047</color>
+    <color name="primary_700">#388E3C</color>
+    <color name="primary_800">#2E7D32</color>
+    <color name="primary_900">#1B5E20</color>
+    
+    <!-- Secondary Colors (Blue) -->
+    <color name="secondary_50">#E3F2FD</color>
+    <color name="secondary_100">#BBDEFB</color>
+    <color name="secondary_200">#90CAF9</color>
+    <color name="secondary_300">#64B5F6</color>
+    <color name="secondary_400">#42A5F5</color>
+    <color name="secondary_500">#2196F3</color>
+    <color name="secondary_600">#1E88E5</color>
+    <color name="secondary_700">#1976D2</color>
+    <color name="secondary_800">#1565C0</color>
+    <color name="secondary_900">#0D47A1</color>
+    
+    <!-- Surface Colors -->
+    <color name="surface_light">#FEFBFF</color>
+    <color name="surface_variant_light">#F4F3F7</color>
+    <color name="surface_dark">#121316</color>
+    <color name="surface_variant_dark">#2B2930</color>
+    
+    <!-- Background Colors -->
+    <color name="background_light">#FEFBFF</color>
+    <color name="background_dark">#121316</color>
+    
+    <!-- Text Colors -->
+    <color name="on_primary_light">#FFFFFF</color>
+    <color name="on_primary_dark">#003909</color>
+    <color name="on_secondary_light">#FFFFFF</color>
+    <color name="on_secondary_dark">#003258</color>
+    <color name="on_surface_light">#1C1B1F</color>
+    <color name="on_surface_dark">#E6E1E5</color>
+    <color name="on_background_light">#1C1B1F</color>
+    <color name="on_background_dark">#E6E1E5</color>
+    
+    <!-- Error Colors -->
+    <color name="error_light">#BA1A1A</color>
+    <color name="error_dark">#FFB4AB</color>
+    <color name="on_error_light">#FFFFFF</color>
+    <color name="on_error_dark">#690005</color>
+    <color name="error_container_light">#FFDAD6</color>
+    <color name="error_container_dark">#93000A</color>
+    <color name="on_error_container_light">#410002</color>
+    <color name="on_error_container_dark">#FFDAD6</color>
+    
+    <!-- Outline Colors -->
+    <color name="outline_light">#79747E</color>
+    <color name="outline_dark">#938F99</color>
+    <color name="outline_variant_light">#CAC4D0</color>
+    <color name="outline_variant_dark">#49454F</color>
+    
+    <!-- Status Colors -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FF9800</color>
+    <color name="info">#2196F3</color>
+    
+    <!-- Common Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+    
+    <!-- Flutter-style elevation colors -->
+    <color name="surface_tint_light">#4CAF50</color>
+    <color name="surface_tint_dark">#A5D6A7</color>
+    
+    <!-- Card and container colors -->
+    <color name="card_light">#FFFFFF</color>
+    <color name="card_dark">#1E1E1E</color>
+    <color name="divider_light">#E0E0E0</color>
+    <color name="divider_dark">#3E3E3E</color>
+</resources>
