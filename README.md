@@ -4,6 +4,10 @@
 
 使用[SyncClipboard](https://github.com/Jeric-X/SyncClipboard/) 作为服务端
 
+<img src="https://github.com/user-attachments/assets/80ef734b-5df7-4751-aa8a-a8428d3b4027" width="320px">
+<img src="https://github.com/user-attachments/assets/d5db3ca1-441b-4cf8-be77-d8f71550b5a2" width="320px">
+
+
 ## ✨ 主要功能
 
 ### 🔄 剪贴板同步
@@ -40,6 +44,8 @@
 
 ### 想要自己编译？
 
+详细内容请查看 [BUILD.md](https://github.com/jacksen168sub/SyncClipboard-Android/blob/main/BUILD.md)
+
 ```bash
 # 克隆代码
 git clone https://github.com/jacksen168sub/SyncClipboard-Android.git
@@ -48,7 +54,8 @@ cd SyncClipboard-Android
 # 先创建个签名&密钥
 ./generate-keystore.bat
 
-# 打开 local.properties 修改SDK路径
+# 根目录创建 local.properties 输入SDK路径
+sdk.dir=C\:\\Users\\<自己的用户名>\\AppData\\Local\\Android\\Sdk
 
 # 用Android Studio打开，或者命令行编译
 ./gradlew assembleDebug
