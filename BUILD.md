@@ -32,10 +32,14 @@ generate-keystore.bat  # 一步生成密钥和配置
 
 **Windows:**
 ```batch
-# 先打开 local.properties 修改SDK路径
+# 根目录创建文件 local.properties 输入SDK路径
+sdk.dir=C\:\\Users\\<自己的用户名>\\AppData\\Local\\Android\\Sdk
 
-gradlew.bat assembleDebug     # Debug版
-gradlew.bat assembleRelease   # Release版
+# Debug版
+gradlew.bat assembleDebug
+
+# Release版
+gradlew.bat assembleRelease
 ```
 
 ## 🐛 常见问题
