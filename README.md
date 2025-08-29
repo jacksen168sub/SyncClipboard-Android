@@ -19,7 +19,7 @@
 
 ### 第一次使用
 
-1. **安装应用**: 下载APK直接安装
+1. **安装应用**: [发行版](https://github.com/jacksen168sub/SyncClipboard-Android/releases) 下载APK直接安装
 3. **授权权限**: 跟着提示给权限就行
 2. **配置服务器**: 填入你的SyncClipboard服务器地址
 4. **开始同步**: 点击右下角开始按钮，然后试试复制点什么
@@ -38,7 +38,9 @@
 
 ## 📱 支持设备
 
-- **系统要求**: Android 9.0 及以上(应该吧,只拿自己安卓12试过)
+- **系统要求**: Android 9.0 及以上
+- **Redmi K50**: Android 12 测试可用
+- **Vivo Y5S**: Android 9 测试可用
 
 ## 🔧 开发相关
 
@@ -60,6 +62,10 @@ sdk.dir=C\:\\Users\\<自己的用户名>\\AppData\\Local\\Android\\Sdk
 # 用Android Studio打开，或者命令行编译
 ./gradlew assembleDebug
 ```
+
+### 注意事项
+
+1. 由于安卓系统限制,在安卓10及以上的系统应用无法在后台读取剪贴板,但可以使用基于Root权限的工具(Magisk/Xposed)解除应用后台读取剪贴版的权限,如[Riru-ClipboardWhitelist](https://github.com/Kr328/Riru-ClipboardWhitelist) / [Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)。由于在安卓13及以上的系统应用必须由用户手动授权才被允许访问系统日志(剪贴板),也可以使用Xposed自动为应用授权访问系统日志的权限,如[DisableLogRequest/禁用日志访问请求](https://github.com/QueallyTech/DisableLogRequest) ,推荐搭配[Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)使用
 
 ### 项目结构
 
