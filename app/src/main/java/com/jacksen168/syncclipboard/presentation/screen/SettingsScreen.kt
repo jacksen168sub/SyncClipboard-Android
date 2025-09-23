@@ -18,7 +18,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jacksen168.syncclipboard.R
+import com.jacksen168.syncclipboard.presentation.component.UpdateDialog
+import com.jacksen168.syncclipboard.presentation.component.NoUpdateDialog
+import com.jacksen168.syncclipboard.presentation.component.ErrorDialog
 import com.jacksen168.syncclipboard.presentation.viewmodel.SettingsViewModel
+import com.jacksen168.syncclipboard.presentation.viewmodel.UpdateViewModel
 
 /**
  * 设置页面
@@ -548,6 +552,41 @@ fun SettingItem(
 fun AboutCard() {
     val context = LocalContext.current
     
+    // 更新检查相关
+    val updateViewModel = remember { UpdateViewModel(context) }
+    val isChecking by updateViewModel.isChecking.collectAsState()
+    val updateInfo by updateViewModel.updateInfo.collectAsState()
+    val showUpdateDialog by updateViewModel.showUpdateDialog.collectAsState()
+    val showNoUpdateMessage by updateViewModel.showNoUpdateMessage.collectAsState()
+    val errorMessage by updateViewModel.errorMessage.collectAsState()
+    
+    // 显示更新对话框
+    updateInfo?.let { info ->
+        if (showUpdateDialog && info.hasUpdate) {
+            UpdateDialog(
+                updateInfo = info,
+                onUpdateClick = updateViewModel::goToUpdate,
+                onLaterClick = updateViewModel::remindLater,
+                onDismiss = updateViewModel::dismissUpdateDialog
+            )
+        }
+    }
+    
+    // 显示无更新提示
+    if (showNoUpdateMessage) {
+        NoUpdateDialog(
+            onDismiss = updateViewModel::dismissNoUpdateMessage
+        )
+    }
+    
+    // 显示错误提示
+    errorMessage?.let { error ->
+        ErrorDialog(
+            message = error,
+            onDismiss = updateViewModel::dismissErrorMessage
+        )
+    }
+    
     // 获取应用版本信息
     val packageInfo = try {
         context.packageManager.getPackageInfo(context.packageName, 0)
@@ -596,7 +635,25 @@ fun AboutCard() {
                 title = stringResource(R.string.app_name),
                 description = "版本 $versionName ($versionCode)",
                 icon = Icons.Default.Build,
-                trailing = {}
+                trailing = {
+                    IconButton(
+                        onClick = { updateViewModel.checkForUpdate() },
+                        enabled = !isChecking
+                    ) {
+                        if (isChecking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdate,
+                                contentDescription = "检查更新",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             )
             
             // GitHub链接

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -25,8 +26,10 @@ import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.SyncClipboardApplication
 import com.jacksen168.syncclipboard.presentation.component.PermissionRequestDialog
+import com.jacksen168.syncclipboard.presentation.component.UpdateDialog
 import com.jacksen168.syncclipboard.presentation.navigation.SyncClipboardNavigation
 import com.jacksen168.syncclipboard.presentation.theme.SyncClipboardTheme
+import com.jacksen168.syncclipboard.presentation.viewmodel.UpdateViewModel
 import com.jacksen168.syncclipboard.service.ClipboardSyncService
 import com.jacksen168.syncclipboard.util.PermissionManager
 
@@ -66,6 +69,9 @@ class MainActivity : ComponentActivity() {
         // 清理图片缓存（异步执行，不阻塞启动）
         cleanupImageCacheOnStartup()
         
+        // 检查应用更新（异步执行，不阻塞启动）
+        checkForUpdateOnStartup()
+        
         setContent {
             SyncClipboardTheme {
                 // 权限状态
@@ -74,12 +80,20 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(PermissionManager.checkAllPermissions(this@MainActivity)) 
                 }
                 
+                // 更新检查
+                val updateViewModel = remember { UpdateViewModel(this@MainActivity) }
+                val showUpdateDialog by updateViewModel.showUpdateDialog.collectAsState()
+                val updateInfo by updateViewModel.updateInfo.collectAsState()
+                
                 // 检查权限
                 LaunchedEffect(Unit) {
                     permissionStatus = PermissionManager.checkAllPermissions(this@MainActivity)
                     if (!permissionStatus.allGranted) {
                         showPermissionDialog = true
                     }
+                    
+                    // 启动时检查更新
+                    updateViewModel.checkForUpdateSilently()
                 }
                 
                 Surface(
@@ -98,6 +112,18 @@ class MainActivity : ComponentActivity() {
                             permissionStatus = PermissionManager.checkAllPermissions(this@MainActivity)
                         }
                     )
+                }
+                
+                // 更新对话框
+                updateInfo?.let { info ->
+                    if (showUpdateDialog && info.hasUpdate) {
+                        UpdateDialog(
+                            updateInfo = info,
+                            onUpdateClick = updateViewModel::goToUpdate,
+                            onLaterClick = updateViewModel::remindLater,
+                            onDismiss = updateViewModel::dismissUpdateDialog
+                        )
+                    }
                 }
             }
         }
@@ -276,6 +302,31 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "图片缓存清理完成")
             } catch (e: Exception) {
                 Log.e(TAG, "清理图片缓存时出错", e)
+            }
+        }
+    }
+    
+    /**
+     * 启动时检查应用更新
+     */
+    private fun checkForUpdateOnStartup() {
+        lifecycleScope.launch {
+            try {
+                Log.d(TAG, "开始检查应用更新...")
+                // 延迟一小会再检查，避免阻塞应用启动
+                kotlinx.coroutines.delay(2000)
+                
+                val updateRepository = (application as SyncClipboardApplication).updateRepository
+                val updateInfo = updateRepository.checkForUpdate()
+                
+                if (updateInfo.hasUpdate) {
+                    Log.i(TAG, "发现新版本: ${updateInfo.latestVersion}")
+                    // 启动时的更新检查由UpdateViewModel处理
+                } else {
+                    Log.d(TAG, "已是最新版本: ${updateInfo.currentVersion}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "检查应用更新时出错", e)
             }
         }
     }

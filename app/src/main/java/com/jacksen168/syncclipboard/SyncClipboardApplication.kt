@@ -9,6 +9,7 @@ import androidx.work.Configuration
 import androidx.work.WorkManager
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
+import com.jacksen168.syncclipboard.data.repository.UpdateRepository
 import com.jacksen168.syncclipboard.work.SyncWorkManagerFactory
 
 class SyncClipboardApplication : Application(), Configuration.Provider {
@@ -20,6 +21,10 @@ class SyncClipboardApplication : Application(), Configuration.Provider {
     
     val clipboardRepository: ClipboardRepository by lazy {
         ClipboardRepository(applicationContext, settingsRepository)
+    }
+    
+    val updateRepository: UpdateRepository by lazy {
+        UpdateRepository(applicationContext)
     }
     
     override fun onCreate() {
