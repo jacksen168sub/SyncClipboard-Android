@@ -71,10 +71,27 @@ fun SettingsScreen(
                 onAutoSyncChange = viewModel::updateAutoSync,
                 onSyncIntervalChange = viewModel::updateSyncInterval,
                 onSyncOnBootChange = viewModel::updateSyncOnBoot,
-                onShowNotificationsChange = viewModel::updateShowNotifications,
+                onRewriteAfterUnlockChange = viewModel::updateRewriteAfterUnlock,
                 onDeviceNameChange = viewModel::updateDeviceName,
                 onClipboardHistoryCountChange = viewModel::updateClipboardHistoryCount,
                 syncIntervalSeconds = viewModel.getSyncIntervalSeconds()
+            )
+        }
+        
+        // 其他设置
+        item {
+            OtherSettingsCard(
+                appSettings = appSettings,
+                onShowNotificationsChange = viewModel::updateShowNotifications,
+                onHideInRecentsChange = viewModel::updateHideInRecents
+            )
+        }
+        
+        // 实验性功能
+        item {
+            ExperimentalFeaturesCard(
+                appSettings = appSettings,
+                onForegroundServiceKeepaliveChange = viewModel::updateForegroundServiceKeepalive
             )
         }
         
@@ -296,7 +313,7 @@ fun SyncSettingsCard(
     onAutoSyncChange: (Boolean) -> Unit,
     onSyncIntervalChange: (Long) -> Unit,
     onSyncOnBootChange: (Boolean) -> Unit,
-    onShowNotificationsChange: (Boolean) -> Unit,
+    onRewriteAfterUnlockChange: (Boolean) -> Unit,
     onDeviceNameChange: (String) -> Unit,
     onClipboardHistoryCountChange: (Int) -> Unit,
     syncIntervalSeconds: Long
@@ -377,15 +394,15 @@ fun SyncSettingsCard(
                 }
             )
             
-            // 显示通知
+            // 解锁后自动重新写入
             SettingItem(
-                title = "显示通知",
-                description = "显示同步状态通知",
-                icon = Icons.Default.Notifications,
+                title = stringResource(R.string.rewrite_after_unlock),
+                description = stringResource(R.string.rewrite_after_unlock_desc),
+                icon = Icons.Default.LockOpen,
                 trailing = {
                     Switch(
-                        checked = appSettings.showNotifications,
-                        onCheckedChange = onShowNotificationsChange
+                        checked = appSettings.rewriteAfterUnlock,
+                        onCheckedChange = onRewriteAfterUnlockChange
                     )
                 }
             )
@@ -661,6 +678,150 @@ fun AboutCard() {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * 其他设置卡片
+ */
+@Composable
+fun OtherSettingsCard(
+    appSettings: com.jacksen168.syncclipboard.data.model.AppSettings,
+    onShowNotificationsChange: (Boolean) -> Unit,
+    onHideInRecentsChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 标题
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(R.string.other_settings),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            // 常驻通知
+            SettingItem(
+                title = stringResource(R.string.persistent_notification),
+                description = stringResource(R.string.persistent_notification_desc),
+                icon = Icons.Default.Notifications,
+                trailing = {
+                    Switch(
+                        checked = appSettings.showNotifications,
+                        onCheckedChange = onShowNotificationsChange
+                    )
+                }
+            )
+            
+            // 在多任务页面隐藏
+            SettingItem(
+                title = stringResource(R.string.hide_in_recents),
+                description = stringResource(R.string.hide_in_recents_desc),
+                icon = Icons.Default.VisibilityOff,
+                trailing = {
+                    Switch(
+                        checked = appSettings.hideInRecents,
+                        onCheckedChange = onHideInRecentsChange
+                    )
+                }
+            )
+        }
+    }
+}
+
+/**
+ * 实验性功能卡片
+ */
+@Composable
+fun ExperimentalFeaturesCard(
+    appSettings: com.jacksen168.syncclipboard.data.model.AppSettings,
+    onForegroundServiceKeepaliveChange: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 标题
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Science,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(R.string.experimental_features),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            // 警告信息
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.experimental_warning),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+            
+            // 前台服务保活
+            SettingItem(
+                title = stringResource(R.string.foreground_service_keepalive),
+                description = stringResource(R.string.foreground_service_keepalive_desc),
+                icon = Icons.Default.Shield,
+                trailing = {
+                    Switch(
+                        checked = appSettings.foregroundServiceKeepalive,
+                        onCheckedChange = onForegroundServiceKeepaliveChange
+                    )
+                }
+            )
         }
     }
 }

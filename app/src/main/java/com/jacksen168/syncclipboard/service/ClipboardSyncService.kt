@@ -1,8 +1,10 @@
 package com.jacksen168.syncclipboard.service
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
@@ -40,6 +42,11 @@ class ClipboardSyncService : Service() {
     
     // 自动同步作业
     private var autoSyncJob: Job? = null
+    
+    // 锁屏状态相关
+    private var isScreenLocked = false
+    private var pendingClipboardItem: ClipboardItem? = null
+    private var screenStateReceiver: BroadcastReceiver? = null
     
     companion object {
         private const val TAG = "ClipboardSyncService"
@@ -100,14 +107,23 @@ class ClipboardSyncService : Service() {
         clipboardRepository = ClipboardRepository(this, settingsRepository)
         clipboardManager = ClipboardManager(this)
         
+        // 初始化锁屏状态
+        initScreenState()
+        
+        // 注册屏幕状态监听
+        registerScreenStateReceiver()
+        
         // 监听剪贴板变化
         startClipboardMonitoring()
         
         // 监听设置变化
         observeSettings()
         
-        // 启动前台通知
-        startForeground(NOTIFICATION_ID, createNotification())
+        // 启动前台通知（异步创建）
+        serviceScope.launch {
+            val notification = createNotification()
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -130,12 +146,14 @@ class ClipboardSyncService : Service() {
             }
             else -> {
                 Log.d(TAG, "服务正常启动")
-                // 确保通知正常显示
-                try {
-                    val notification = createNotification()
-                    startForeground(NOTIFICATION_ID, notification)
-                } catch (e: Exception) {
-                    Log.e(TAG, "创建前台通知失败", e)
+                // 确保通知正常显示（异步创建）
+                serviceScope.launch {
+                    try {
+                        val notification = createNotification()
+                        startForeground(NOTIFICATION_ID, notification)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "创建前台通知失败", e)
+                    }
                 }
             }
         }
@@ -153,6 +171,9 @@ class ClipboardSyncService : Service() {
         
         // 停止剪贴板监听
         clipboardManager.stopListening()
+        
+        // 注销屏幕状态监听
+        unregisterScreenStateReceiver()
         
         // 取消所有协程
         serviceScope.cancel()
@@ -209,8 +230,8 @@ class ClipboardSyncService : Service() {
                 // 更新自动同步
                 updateAutoSync(appSettings.autoSync, appSettings.syncInterval)
                 
-                // 更新通知
-                updateNotification()
+                // 更新常驻通知
+                updatePersistentNotification(appSettings.showNotifications)
             }
         }
     }
@@ -300,13 +321,34 @@ class ClipboardSyncService : Service() {
      */
     private suspend fun updateClipboardFromServer(item: ClipboardItem) {
         try {
-            // 暂时停止监听剪贴板变化，避免循环
+            // 检查是否在锁屏状态
+            if (isScreenLocked) {
+                Log.d(TAG, "设备处于锁屏状态，缓存内容等待解锁后处理")
+                pendingClipboardItem = item
+                return
+            }
+            
+            // 非锁屏状态，正常处理
+            writeToClipboard(item)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "更新剪贴板时出错", e)
+        }
+    }
+    
+    /**
+     * 将内容写入剪贴板
+     */
+    private suspend fun writeToClipboard(item: ClipboardItem) {
+        try {
+            // 暂时停止监听剪贴板变化，防止循环
             clipboardManager.stopListening()
             
             // 将服务器内容设置到剪贴板
             when (item.type) {
                 ClipboardType.TEXT -> {
                     clipboardManager.setClipboardText(item.content)
+                    Log.d(TAG, "已将文本内容写入剪贴板: ${item.content.take(20)}...")
                 }
                 ClipboardType.IMAGE -> {
                     // 图片类型：如果有本地路径，则设置图片到剪贴板
@@ -319,6 +361,7 @@ class ClipboardSyncService : Service() {
                                 file
                             )
                             clipboardManager.setClipboardImage(uri)
+                            Log.d(TAG, "已将图片内容写入剪贴板: $path")
                         } else {
                             Log.w(TAG, "图片文件不存在: $path")
                         }
@@ -335,7 +378,7 @@ class ClipboardSyncService : Service() {
             clipboardManager.startListening()
             
         } catch (e: Exception) {
-            Log.e(TAG, "更新剪贴板时出错", e)
+            Log.e(TAG, "写入剪贴板时出错", e)
             // 确保重新开始监听
             clipboardManager.startListening()
         }
@@ -420,7 +463,11 @@ class ClipboardSyncService : Service() {
     /**
      * 创建前台通知
      */
-    private fun createNotification(): Notification {
+    private suspend fun createNotification(showPersistent: Boolean = true): Notification {
+        // 获取前台服务保活设置
+        val appSettings = settingsRepository.appSettingsFlow.first()
+        val keepaliveEnabled = appSettings.foregroundServiceKeepalive
+        
         // 点击通知打开应用的意图
         val mainIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -429,30 +476,52 @@ class ClipboardSyncService : Service() {
             this, 0, mainIntent, PendingIntent.FLAG_IMMUTABLE
         )
         
-        // 停止服务的意图
-        val stopIntent = Intent(this, ClipboardSyncService::class.java).apply {
-            action = ACTION_STOP_SERVICE
-        }
-        val stopPendingIntent = PendingIntent.getService(
-            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        // 手动同步的意图
-        val syncIntent = Intent(this, ClipboardSyncService::class.java).apply {
-            action = ACTION_SYNC_NOW
-        }
-        val syncPendingIntent = PendingIntent.getService(
-            this, 1, syncIntent, PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        return NotificationCompat.Builder(this, SyncClipboardApplication.CHANNEL_ID_SYNC_SERVICE)
+        val builder = NotificationCompat.Builder(this, SyncClipboardApplication.CHANNEL_ID_SYNC_SERVICE)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(getString(R.string.notification_service_running))
+            .setContentText(
+                when {
+                    !showPersistent -> "同步服务已禁用通知"
+                    keepaliveEnabled -> "剪贴板同步服务正在运行（保活模式）"
+                    else -> getString(R.string.notification_service_running)
+                }
+            )
             .setSmallIcon(android.R.drawable.ic_menu_share) // 使用系统图标
             .setContentIntent(mainPendingIntent) // 点击通知打开应用
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(
+            .setOngoing(true) // 设置为持续通知，无法被用户滑动删除
+            .setAutoCancel(false) // 禁止自动取消
+            .setPriority(
+                when {
+                    !showPersistent -> NotificationCompat.PRIORITY_MIN
+                    keepaliveEnabled -> NotificationCompat.PRIORITY_LOW // 保活模式使用较低优先级但可见
+                    else -> NotificationCompat.PRIORITY_LOW
+                }
+            )
+            
+        // 如果启用保活模式，增强通知的持续性
+        if (keepaliveEnabled) {
+            builder.setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        }
+            
+        if (showPersistent) {
+            // 停止服务的意图
+            val stopIntent = Intent(this, ClipboardSyncService::class.java).apply {
+                action = ACTION_STOP_SERVICE
+            }
+            val stopPendingIntent = PendingIntent.getService(
+                this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            // 手动同步的意图
+            val syncIntent = Intent(this, ClipboardSyncService::class.java).apply {
+                action = ACTION_SYNC_NOW
+            }
+            val syncPendingIntent = PendingIntent.getService(
+                this, 1, syncIntent, PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            builder.addAction(
                 android.R.drawable.ic_menu_rotate,
                 getString(R.string.refresh),
                 syncPendingIntent
@@ -462,16 +531,32 @@ class ClipboardSyncService : Service() {
                 getString(R.string.cancel),
                 stopPendingIntent
             )
-            .build()
+        }
+        
+        return builder.build()
     }
     
     /**
      * 更新通知
      */
     private fun updateNotification() {
-        val notification = createNotification()
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        serviceScope.launch {
+            val notification = createNotification()
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, notification)
+        }
+    }
+    
+    /**
+     * 更新常驻通知
+     */
+    private fun updatePersistentNotification(showPersistent: Boolean) {
+        serviceScope.launch {
+            val notification = createNotification(showPersistent)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, notification)
+            Log.d(TAG, "常驻通知设置已更新: $showPersistent")
+        }
     }
     
     /**
@@ -479,7 +564,7 @@ class ClipboardSyncService : Service() {
      */
     private suspend fun showSyncNotification(message: String) {
         try {
-            // 检查是否启用通知
+            // 检查是否启用同步状态通知（这里不影响常驻通知）
             val appSettings = settingsRepository.appSettingsFlow.first()
             if (!appSettings.showNotifications) {
                 return
@@ -547,6 +632,101 @@ class ClipboardSyncService : Service() {
             Log.d(TAG, "服务重启完成")
         } catch (e: Exception) {
             Log.e(TAG, "重启服务失败", e)
+        }
+    }
+    
+    /**
+     * 初始化屏幕状态
+     */
+    private fun initScreenState() {
+        try {
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+            isScreenLocked = keyguardManager.isKeyguardLocked
+            Log.d(TAG, "初始屏幕状态: ${if (isScreenLocked) "锁定" else "解锁"}")
+        } catch (e: Exception) {
+            Log.e(TAG, "获取屏幕状态失败", e)
+            isScreenLocked = false
+        }
+    }
+    
+    /**
+     * 注册屏幕状态监听
+     */
+    private fun registerScreenStateReceiver() {
+        try {
+            screenStateReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    when (intent?.action) {
+                        Intent.ACTION_SCREEN_OFF -> {
+                            Log.d(TAG, "屏幕关闭")
+                            isScreenLocked = true
+                        }
+                        Intent.ACTION_USER_PRESENT -> {
+                            Log.d(TAG, "用户解锁")
+                            isScreenLocked = false
+                            // 处理解锁后的逻辑
+                            handleScreenUnlocked()
+                        }
+                        Intent.ACTION_SCREEN_ON -> {
+                            Log.d(TAG, "屏幕点亮")
+                            // 屏幕点亮不一定解锁，需要等待USER_PRESENT
+                        }
+                    }
+                }
+            }
+            
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            
+            registerReceiver(screenStateReceiver, filter)
+            Log.d(TAG, "屏幕状态监听已注册")
+        } catch (e: Exception) {
+            Log.e(TAG, "注册屏幕状态监听失败", e)
+        }
+    }
+    
+    /**
+     * 注销屏幕状态监听
+     */
+    private fun unregisterScreenStateReceiver() {
+        try {
+            screenStateReceiver?.let {
+                unregisterReceiver(it)
+                screenStateReceiver = null
+                Log.d(TAG, "屏幕状态监听已注销")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "注销屏幕状态监听失败", e)
+        }
+    }
+    
+    /**
+     * 处理屏幕解锁后的逻辑
+     */
+    private fun handleScreenUnlocked() {
+        serviceScope.launch {
+            try {
+                // 检查解锁后自动重新写入设置
+                val appSettings = settingsRepository.appSettingsFlow.first()
+                if (!appSettings.rewriteAfterUnlock) {
+                    Log.d(TAG, "解锁后自动重新写入功能已禁用")
+                    pendingClipboardItem = null // 清空缓存
+                    return@launch
+                }
+                
+                // 如果有缓存的剪贴板内容，现在写入
+                pendingClipboardItem?.let { item ->
+                    Log.d(TAG, "解锁后处理缓存的剪贴板内容")
+                    writeToClipboard(item)
+                    pendingClipboardItem = null // 清空缓存
+                    showSyncNotification("解锁后已自动写入: ${item.content.take(20)}...")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "处理解锁后逻辑时出错", e)
+            }
         }
     }
 }

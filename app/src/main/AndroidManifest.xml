@@ -23,6 +23,9 @@
     <!-- 系统级运行权限 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    
+    <!-- 任务管理权限 -->
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
 
     <application
         android:name=".SyncClipboardApplication"

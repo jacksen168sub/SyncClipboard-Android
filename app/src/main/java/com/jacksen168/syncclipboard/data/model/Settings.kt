@@ -18,9 +18,12 @@ data class AppSettings(
     val autoSync: Boolean = true,
     val syncInterval: Long = 300L, // 3秒
     val syncOnBoot: Boolean = true,
-    val showNotifications: Boolean = true,
+    val showNotifications: Boolean = true, // 现在表示常驻通知
     val deviceName: String = "",
-    val clipboardHistoryCount: Int = 10 // 剪贴板历史显示数量，默认10条
+    val clipboardHistoryCount: Int = 10, // 剪贴板历史显示数量，默认10条
+    val hideInRecents: Boolean = false, // 在多任务页面隐藏应用
+    val rewriteAfterUnlock: Boolean = true, // 解锁后自动重新写入剪贴板同步过来的内容
+    val foregroundServiceKeepalive: Boolean = false // 前台服务保活功能
 )
 
 /**

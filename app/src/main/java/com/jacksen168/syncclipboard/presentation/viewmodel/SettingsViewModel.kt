@@ -236,6 +236,93 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * 更新在多任务页面隐藏设置
+     */
+    fun updateHideInRecents(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                _appSettings.value = _appSettings.value.copy(hideInRecents = enabled)
+                
+                // 确保设置被保存
+                settingsRepository.saveAppSettings(_appSettings.value)
+                
+                android.util.Log.d("SettingsViewModel", "隐藏在多任务页面设置已更改为: $enabled 并已保存")
+                
+                // 等待一下确保保存完成
+                kotlinx.coroutines.delay(100)
+                
+                // 再次验证设置是否正确保存
+                val savedSettings = settingsRepository.appSettingsFlow.first()
+                if (savedSettings.hideInRecents == enabled) {
+                    android.util.Log.d("SettingsViewModel", "设置保存验证成功")
+                } else {
+                    android.util.Log.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.hideInRecents}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "更新隐藏设置失败", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新解锁后自动重新写入设置
+     */
+    fun updateRewriteAfterUnlock(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                _appSettings.value = _appSettings.value.copy(rewriteAfterUnlock = enabled)
+                
+                // 确保设置被保存
+                settingsRepository.saveAppSettings(_appSettings.value)
+                
+                android.util.Log.d("SettingsViewModel", "解锁后自动重新写入设置已更改为: $enabled 并已保存")
+                
+                // 等待一下确保保存完成
+                kotlinx.coroutines.delay(100)
+                
+                // 再次验证设置是否正确保存
+                val savedSettings = settingsRepository.appSettingsFlow.first()
+                if (savedSettings.rewriteAfterUnlock == enabled) {
+                    android.util.Log.d("SettingsViewModel", "设置保存验证成功")
+                } else {
+                    android.util.Log.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.rewriteAfterUnlock}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "更新解锁后重新写入设置失败", e)
+            }
+        }
+    }
+    
+    /**
+     * 更新前台服务保活设置
+     */
+    fun updateForegroundServiceKeepalive(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                _appSettings.value = _appSettings.value.copy(foregroundServiceKeepalive = enabled)
+                
+                // 确保设置被保存
+                settingsRepository.saveAppSettings(_appSettings.value)
+                
+                android.util.Log.d("SettingsViewModel", "前台服务保活设置已更改为: $enabled 并已保存")
+                
+                // 等待一下确保保存完成
+                kotlinx.coroutines.delay(100)
+                
+                // 再次验证设置是否正确保存
+                val savedSettings = settingsRepository.appSettingsFlow.first()
+                if (savedSettings.foregroundServiceKeepalive == enabled) {
+                    android.util.Log.d("SettingsViewModel", "设置保存验证成功")
+                } else {
+                    android.util.Log.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.foregroundServiceKeepalive}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SettingsViewModel", "更新前台服务保活设置失败", e)
+            }
+        }
+    }
+    
+    /**
      * 更新设备名称
      */
     fun updateDeviceName(name: String) {

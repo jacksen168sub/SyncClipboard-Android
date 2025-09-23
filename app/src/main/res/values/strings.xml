@@ -37,11 +37,26 @@
     <string name="sync_interval_desc">定期检查服务器更新的时间间隔</string>
     <string name="sync_on_boot">启动时自动开启服务</string>
     <string name="sync_on_boot_desc">应用启动时自动开启剪贴板同步服务</string>
+    <string name="rewrite_after_unlock">解锁屏幕后重新写入剪贴板</string>
+    <string name="rewrite_after_unlock_desc">锁屏期间如内容已同步到APP但没有写入剪贴板时,解锁屏幕后自动将同步过来的内容重新写入剪贴板</string>
+    
+    <!-- Other Settings -->
+    <string name="other_settings">其他设置</string>
+    <string name="persistent_notification">显示同步通知</string>
+    <string name="persistent_notification_desc">显示同步状态通知</string>
+    <string name="hide_in_recents">在多任务页面隐藏</string>
+    <string name="hide_in_recents_desc">在系统多任务页面中隐藏应用</string>
+    
+    <!-- Experimental Features -->
+    <string name="experimental_features">实验性功能</string>
+    <string name="foreground_service_keepalive">前台服务保活</string>
+    <string name="foreground_service_keepalive_desc">使用前台服务机制增强应用保活能力</string>
+    <string name="experimental_warning">无法确定功能能否正常运行</string>
     
     <!-- Notification -->
     <string name="notification_channel_name">剪贴板同步</string>
     <string name="notification_channel_desc">显示剪贴板同步状态</string>
-    <string name="notification_service_running">剪贴板同步服务正在运行</string>
+    <string name="notification_service_running">剪贴板同步服务正在后台运行</string>
     <string name="notification_synced">剪贴板已同步</string>
     <string name="notification_sync_failed">同步失败</string>
     

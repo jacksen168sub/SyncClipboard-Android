@@ -38,6 +38,9 @@ class SettingsRepository(private val context: Context) {
         private val SHOW_NOTIFICATIONS_KEY = booleanPreferencesKey("show_notifications")
         private val DEVICE_NAME_KEY = stringPreferencesKey("device_name")
         private val CLIPBOARD_HISTORY_COUNT_KEY = intPreferencesKey("clipboard_history_count")
+        private val HIDE_IN_RECENTS_KEY = booleanPreferencesKey("hide_in_recents")
+        private val REWRITE_AFTER_UNLOCK_KEY = booleanPreferencesKey("rewrite_after_unlock")
+        private val FOREGROUND_SERVICE_KEEPALIVE_KEY = booleanPreferencesKey("foreground_service_keepalive")
         
         // 密码加密密钥（简单的对称加密）
         private const val ENCRYPTION_KEY = "jascksen168_SyncClipboard"
@@ -66,7 +69,10 @@ class SettingsRepository(private val context: Context) {
             syncOnBoot = preferences[SYNC_ON_BOOT_KEY] ?: false,
             showNotifications = preferences[SHOW_NOTIFICATIONS_KEY] ?: false,
             deviceName = preferences[DEVICE_NAME_KEY] ?: getDefaultDeviceName(),
-            clipboardHistoryCount = preferences[CLIPBOARD_HISTORY_COUNT_KEY] ?: 10
+            clipboardHistoryCount = preferences[CLIPBOARD_HISTORY_COUNT_KEY] ?: 10,
+            hideInRecents = preferences[HIDE_IN_RECENTS_KEY] ?: false,
+            rewriteAfterUnlock = preferences[REWRITE_AFTER_UNLOCK_KEY] ?: true,
+            foregroundServiceKeepalive = preferences[FOREGROUND_SERVICE_KEEPALIVE_KEY] ?: false
         )
     }
     
@@ -94,6 +100,9 @@ class SettingsRepository(private val context: Context) {
             preferences[SHOW_NOTIFICATIONS_KEY] = settings.showNotifications
             preferences[DEVICE_NAME_KEY] = settings.deviceName
             preferences[CLIPBOARD_HISTORY_COUNT_KEY] = settings.clipboardHistoryCount
+            preferences[HIDE_IN_RECENTS_KEY] = settings.hideInRecents
+            preferences[REWRITE_AFTER_UNLOCK_KEY] = settings.rewriteAfterUnlock
+            preferences[FOREGROUND_SERVICE_KEEPALIVE_KEY] = settings.foregroundServiceKeepalive
         }
     }
     

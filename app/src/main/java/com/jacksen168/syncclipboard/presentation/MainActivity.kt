@@ -1,6 +1,8 @@
 package com.jacksen168.syncclipboard.presentation
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +21,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.SyncClipboardApplication
 import com.jacksen168.syncclipboard.presentation.component.PermissionRequestDialog
@@ -50,6 +53,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // 应用隐藏在多任务页面设置（必须在最早期设置）
+        applyHideInRecentsSettings()
         
         // 检查并请求通知权限（Android 13+）
         checkNotificationPermission()
@@ -113,6 +119,112 @@ class MainActivity : ComponentActivity() {
     }
     
     /**
+     * 应用隐藏在多任务页面设置
+     */
+    private fun applyHideInRecentsSettings() {
+        lifecycleScope.launch {
+            try {
+                val settingsRepository = (application as SyncClipboardApplication).settingsRepository
+                
+                // 先获取初始设置并立即应用
+                val initialSettings = settingsRepository.appSettingsFlow.first()
+                applyHideFlags(initialSettings.hideInRecents)
+                
+                // 然后监听设置变化
+                settingsRepository.appSettingsFlow.collect { appSettings ->
+                    applyHideFlags(appSettings.hideInRecents)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "应用隐藏设置时出错", e)
+            }
+        }
+    }
+    
+    /**
+     * 应用隐藏标志
+     */
+    private fun applyHideFlags(hideInRecents: Boolean) {
+        try {
+            if (hideInRecents) {
+                // 使用多种方式确保从多任务页面隐藏
+                // 注意：不使用 FLAG_SECURE，因为它会让多任务页面显示白屏
+                
+                // 为 Intent 添加标志
+                intent?.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                
+                // 在任务管理器中隐藏
+                hideFromTaskManager()
+                
+                Log.d(TAG, "应用已从多任务页面隐藏")
+            } else {
+                // 恢复显示在任务管理器中
+                showInTaskManager()
+                
+                Log.d(TAG, "应用可在多任务页面显示")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "应用隐藏标志时出错", e)
+        }
+    }
+    
+    /**
+     * 从任务管理器中隐藏
+     */
+    private fun hideFromTaskManager() {
+        try {
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val appTasks = activityManager.appTasks
+            for (task in appTasks) {
+                try {
+                    task.setExcludeFromRecents(true)
+                    Log.d(TAG, "任务已隐藏: ${task.taskInfo?.taskId}")
+                } catch (e: Exception) {
+                    Log.w(TAG, "设置任务隐藏失败", e)
+                }
+            }
+            
+            // 尝试设置任务描述为空，进一步隐藏
+            val taskDescription = android.app.ActivityManager.TaskDescription(
+                "", // 空标签
+                null, // 无图标
+                0 // 透明颜色
+            )
+            setTaskDescription(taskDescription)
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "从任务管理器隐藏失败", e)
+        }
+    }
+    
+    /**
+     * 在任务管理器中显示
+     */
+    private fun showInTaskManager() {
+        try {
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val appTasks = activityManager.appTasks
+            for (task in appTasks) {
+                try {
+                    task.setExcludeFromRecents(false)
+                } catch (e: Exception) {
+                    Log.w(TAG, "恢复任务显示失败", e)
+                }
+            }
+            
+            // 恢复正常的任务描述
+            val taskDescription = android.app.ActivityManager.TaskDescription(
+                getString(R.string.app_name),
+                null,
+                0 // 使用默认颜色
+            )
+            setTaskDescription(taskDescription)
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "在任务管理器显示失败", e)
+        }
+    }
+    
+    /**
      * 检查设置并自动启动服务
      */
     private fun autoStartServiceIfEnabled() {
@@ -164,6 +276,35 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "图片缓存清理完成")
             } catch (e: Exception) {
                 Log.e(TAG, "清理图片缓存时出错", e)
+            }
+        }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // 在 Activity 恢复时重新应用隐藏设置
+        reapplyHideInRecentsIfNeeded()
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // 在 Activity 暂停时确保隐藏设置生效
+        reapplyHideInRecentsIfNeeded()
+    }
+    
+    /**
+     * 重新应用隐藏设置（如果需要）
+     */
+    private fun reapplyHideInRecentsIfNeeded() {
+        lifecycleScope.launch {
+            try {
+                val settingsRepository = (application as SyncClipboardApplication).settingsRepository
+                val appSettings = settingsRepository.appSettingsFlow.first()
+                if (appSettings.hideInRecents) {
+                    applyHideFlags(true)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "重新应用隐藏设置失败", e)
             }
         }
     }
