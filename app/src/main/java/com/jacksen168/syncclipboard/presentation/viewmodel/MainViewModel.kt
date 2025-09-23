@@ -81,7 +81,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun registerRefreshReceiver() {
         val filter = IntentFilter("com.jacksen168.syncclipboard.REFRESH_LIST")
-        getApplication<Application>().registerReceiver(refreshReceiver, filter)
+        getApplication<Application>().registerReceiver(refreshReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
     }
     
     /**

@@ -681,7 +681,7 @@ class ClipboardSyncService : Service() {
                 addAction(Intent.ACTION_USER_PRESENT)
             }
             
-            registerReceiver(screenStateReceiver, filter)
+            registerReceiver(screenStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
             Log.d(TAG, "屏幕状态监听已注册")
         } catch (e: Exception) {
             Log.e(TAG, "注册屏幕状态监听失败", e)
