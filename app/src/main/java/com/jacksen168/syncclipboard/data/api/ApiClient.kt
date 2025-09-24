@@ -11,7 +11,12 @@ import okhttp3.Route
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import javax.net.ssl.HostnameVerifier
 
 /**
  * 网络客户端工厂类
@@ -36,7 +41,8 @@ object ApiClient {
     fun createApiService(
         baseUrl: String,
         username: String = "",
-        password: String = ""
+        password: String = "",
+        trustUnsafeSSL: Boolean = false
     ): SyncClipboardApi {
         val gson = GsonBuilder()
             .setDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
@@ -63,6 +69,12 @@ object ApiClient {
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .apply {
+                // 如果允许信任不安全的SSL，配置相应的SSL设置
+                if (trustUnsafeSSL) {
+                    configureUnsafeSSL(this)
+                }
+            }
             .build()
         
         val retrofit = Retrofit.Builder()
@@ -118,6 +130,39 @@ object ApiClient {
             return httpUrl.toString()
         } catch (e: Exception) {
             throw IllegalArgumentException("无效的 URL 格式: $trimmedUrl", e)
+        }
+    }
+    
+    /**
+     * 配置不安全的SSL设置（信任所有证书）
+     */
+    private fun configureUnsafeSSL(builder: OkHttpClient.Builder) {
+        try {
+            // 创建一个信任所有证书的TrustManager
+            val trustAllCerts = arrayOf<TrustManager>(
+                object : X509TrustManager {
+                    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+                    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+                    override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+                }
+            )
+            
+            // 初始化SSL上下文
+            val sslContext = SSLContext.getInstance("SSL")
+            sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+            
+            // 创建一个SSLSocketFactory
+            val sslSocketFactory = sslContext.socketFactory
+            
+            // 配置OkHttpClient信任所有证书
+            builder.sslSocketFactory(sslSocketFactory, trustAllCerts[0] as X509TrustManager)
+            
+            // 配置主机名验证器接受所有主机名
+            builder.hostnameVerifier(HostnameVerifier { _, _ -> true })
+            
+        } catch (e: Exception) {
+            android.util.Log.e("ApiClient", "配置不安全SSL失败", e)
+            // 如果配置失败，继续使用默认的SSL配置
         }
     }
 }

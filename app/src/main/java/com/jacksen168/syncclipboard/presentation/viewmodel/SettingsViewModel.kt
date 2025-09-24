@@ -77,6 +77,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * 更新信任不安全SSL设置
+     */
+    fun updateTrustUnsafeSSL(trust: Boolean) {
+        _serverConfig.value = _serverConfig.value.copy(trustUnsafeSSL = trust)
+        saveServerConfigInternal()
+    }
+    
+    /**
      * 内部保存服务器配置（实时保存）
      */
     private fun saveServerConfigInternal() {

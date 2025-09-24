@@ -7,6 +7,7 @@ data class ServerConfig(
     val url: String = "",
     val username: String = "",
     val password: String = "",
+    val trustUnsafeSSL: Boolean = false,
     val isConnected: Boolean = false,
     val lastSyncTime: Long = 0L
 )

@@ -28,6 +28,7 @@ class SettingsRepository(private val context: Context) {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
         private val SERVER_USERNAME_KEY = stringPreferencesKey("server_username")
         private val SERVER_PASSWORD_KEY = stringPreferencesKey("server_password")
+        private val TRUST_UNSAFE_SSL_KEY = booleanPreferencesKey("trust_unsafe_ssl")
         private val IS_CONNECTED_KEY = booleanPreferencesKey("is_connected")
         private val LAST_SYNC_TIME_KEY = longPreferencesKey("last_sync_time")
         
@@ -54,6 +55,7 @@ class SettingsRepository(private val context: Context) {
             url = preferences[SERVER_URL_KEY] ?: "",
             username = preferences[SERVER_USERNAME_KEY] ?: "",
             password = decryptPassword(preferences[SERVER_PASSWORD_KEY] ?: ""),
+            trustUnsafeSSL = preferences[TRUST_UNSAFE_SSL_KEY] ?: false,
             isConnected = preferences[IS_CONNECTED_KEY] ?: false,
             lastSyncTime = preferences[LAST_SYNC_TIME_KEY] ?: 0L
         )
@@ -84,6 +86,7 @@ class SettingsRepository(private val context: Context) {
             preferences[SERVER_URL_KEY] = config.url
             preferences[SERVER_USERNAME_KEY] = config.username
             preferences[SERVER_PASSWORD_KEY] = encryptPassword(config.password)
+            preferences[TRUST_UNSAFE_SSL_KEY] = config.trustUnsafeSSL
             preferences[IS_CONNECTED_KEY] = config.isConnected
             preferences[LAST_SYNC_TIME_KEY] = config.lastSyncTime
         }

@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.presentation.component.UpdateDialog
@@ -64,6 +65,7 @@ fun SettingsScreen(
                 onUrlChange = viewModel::updateServerUrl,
                 onUsernameChange = viewModel::updateUsername,
                 onPasswordChange = viewModel::updatePassword,
+                onTrustUnsafeSSLChange = viewModel::updateTrustUnsafeSSL,
                 onTestConnection = viewModel::testConnection
             )
         }
@@ -116,6 +118,7 @@ fun ServerSettingsCard(
     onUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onTrustUnsafeSSLChange: (Boolean) -> Unit,
     onTestConnection: () -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
@@ -207,13 +210,24 @@ fun ServerSettingsCard(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
             
-            // 状态信息区域（预留固定空间避免布局跳动）
+            // 信任不安全SSL设置
+            SettingItem(
+                title = stringResource(R.string.trust_unsafe_ssl),
+                description = stringResource(R.string.trust_unsafe_ssl_desc),
+                icon = Icons.Default.Security,
+                trailing = {
+                    Switch(
+                        checked = serverConfig.trustUnsafeSSL,
+                        onCheckedChange = onTrustUnsafeSSLChange
+                    )
+                }
+            )
+            
+            // 状态信息区域
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(32.dp) // 增加固定高度以确保足够空间
-                    .padding(vertical = 4.dp),
-                contentAlignment = Alignment.CenterStart
+                    .heightIn(min = 10.dp, max = 45.dp)
             ) {
                 when {
                     uiState.isLoading -> {
@@ -234,20 +248,32 @@ fun ServerSettingsCard(
                     }
                     uiState.error != null -> {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Error,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .padding(top = 2.dp) // 稍微向下偏移以对齐文本首行
                             )
-                            Text(
-                                text = uiState.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                item {
+                                    Text(
+                                        text = uiState.error,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
                         }
                     }
                     uiState.successMessage != null -> {
@@ -278,7 +304,7 @@ fun ServerSettingsCard(
                 }
             }
             
-            // 操作按钮（只保留测试连接）
+            // 测试连接
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start
