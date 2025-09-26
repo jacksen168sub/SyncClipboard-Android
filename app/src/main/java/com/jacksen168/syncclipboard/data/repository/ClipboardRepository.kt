@@ -86,7 +86,16 @@ class ClipboardRepository(
      * 智能去重逻辑：基于内容哈希合并重复项目
      */
     private suspend fun smartDeduplication(items: List<ClipboardItem>): List<ClipboardItem> {
-        val hashGroups = items.groupBy { it.contentHash }
+        // 对于图片类型，使用内容（文件哈希）进行分组；对于其他类型，使用contentHash进行分组
+        val hashGroups = items.groupBy { item ->
+            if (item.type == ClipboardType.IMAGE) {
+                // 对于图片，使用content字段（文件哈希）作为去重键
+                item.content
+            } else {
+                // 对于文本和其他类型，使用contentHash作为去重键
+                item.contentHash
+            }
+        }
         val deduplicatedItems = mutableListOf<ClipboardItem>()
 
         hashGroups.forEach { (hash, group) ->
@@ -180,7 +189,11 @@ class ClipboardRepository(
                     else -> source
                 },
                 isSynced = source == ClipboardSource.REMOTE || existing.isSynced,
-                deviceName = if (source == ClipboardSource.LOCAL) settings.deviceName else existing.deviceName
+                deviceName = if (source == ClipboardSource.LOCAL) settings.deviceName else existing.deviceName,
+                // 保留文件相关信息
+                fileName = fileName ?: existing.fileName,
+                mimeType = mimeType ?: existing.mimeType,
+                localPath = localPath ?: existing.localPath
             )
             clipboardDao.updateItem(updatedItem)
             updatedItem
@@ -294,7 +307,7 @@ class ClipboardRepository(
                             // 创建新的远程项目
                             val newItem = ClipboardItem(
                                 id = UUID.randomUUID().toString(),
-                                content = content,
+                                content = if (type == ClipboardType.IMAGE) body.clipboard else content,
                                 type = type,
                                 timestamp = System.currentTimeMillis(),
                                 fileName = fileName,
@@ -380,6 +393,34 @@ class ClipboardRepository(
                     }
 
                     Log.d(TAG, "文件哈希值计算完成: $fileHash")
+                    
+                    // 检查服务端是否已存在相同内容的剪贴板项目
+                    Log.d(TAG, "检查服务端是否已存在相同内容的剪贴板项目")
+                    val serverClipboard = api.getClipboard()
+                    if (serverClipboard.isSuccessful) {
+                        val serverBody = serverClipboard.body()
+                        if (serverBody != null && 
+                            serverBody.type == "Image" && 
+                            serverBody.clipboard == fileHash) {
+                            Log.d(TAG, "服务端已存在相同内容的图片，跳过上传: fileHash=$fileHash")
+                            // 标记为已同步
+                            val updatedItem = item.copy(
+                                isSynced = true,
+                                lastModified = System.currentTimeMillis()
+                            )
+                            clipboardDao.updateItem(updatedItem)
+                            settingsRepository.updateLastSyncTime(System.currentTimeMillis())
+                            lastSyncedContentHash = item.contentHash
+                            return@withContext Result.success(updatedItem)
+                        } else {
+                            Log.d(TAG, "服务端不存在相同内容的图片，继续上传流程")
+                            if (serverBody != null) {
+                                Log.d(TAG, "服务端当前内容: type=${serverBody.type}, clipboard=${serverBody.clipboard}")
+                            }
+                        }
+                    } else {
+                        Log.w(TAG, "获取服务端剪贴板内容失败: HTTP ${serverClipboard.code()}")
+                    }
 
                     // 上传文件到服务器
                     Log.d(TAG, "开始调用uploadImageFile方法")
@@ -925,4 +966,7 @@ class ClipboardRepository(
         }
     }
 }
+
+
+
 

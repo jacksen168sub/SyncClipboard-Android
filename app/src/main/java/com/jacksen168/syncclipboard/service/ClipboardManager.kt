@@ -162,21 +162,50 @@ class ClipboardManager(private val context: Context) {
                     cacheDir.mkdirs()
                 }
                 
-                // 生成文件名
-                val fileName = "clipboard_image_${System.currentTimeMillis()}.jpg"
-                val cacheFile = File(cacheDir, fileName)
+                // 尝试从URI获取原始文件名
+                var originalFileName: String? = null
+                try {
+                    // 尝试从URI获取原始文件名
+                    originalFileName = getFileNameFromUri(uri)
+                } catch (e: Exception) {
+                    Log.w(TAG, "无法从URI获取原始文件名", e)
+                }
                 
-                // 保存图片到缓存
-                val outputStream = FileOutputStream(cacheFile)
+                // 生成文件名 - 如果有原始文件名则使用，否则使用基于内容哈希的统一命名格式
+                val tempFile = File.createTempFile("temp_image_", ".tmp")
+                val outputStream = FileOutputStream(tempFile)
                 inputStream.copyTo(outputStream)
                 inputStream.close()
                 outputStream.close()
                 
-                // 计算文件哈希值作为content
-                val fileHash = calculateFileHash(cacheFile)
+                // 计算文件哈希值
+                val fileHash = calculateFileHash(tempFile)
                 
-                // 获取MIME类型
-                val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                // 确定文件名
+                val fileName = if (!originalFileName.isNullOrEmpty()) {
+                    // 使用原始文件名，但确保使用正确的哈希文件名以避免重复
+                    originalFileName
+                } else {
+                    // 使用统一的命名格式：clipboard_image_{hash}.{extension}
+                    // 从MIME类型推断扩展名
+                    val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                    val extension = when {
+                        mimeType.contains("png") -> "png"
+                        mimeType.contains("gif") -> "gif"
+                        else -> "jpg"
+                    }
+                    "clipboard_image_${fileHash}.${extension}"
+                }
+                
+                val cacheFile = File(cacheDir, fileName)
+                
+                // 如果文件不存在，则移动临时文件
+                if (!cacheFile.exists()) {
+                    tempFile.renameTo(cacheFile)
+                } else {
+                    // 如果文件已存在，删除临时文件
+                    tempFile.delete()
+                }
                 
                 ClipboardItem(
                     id = UUID.randomUUID().toString(),
@@ -186,7 +215,7 @@ class ClipboardManager(private val context: Context) {
                     deviceName = getDeviceName(),
                     fileName = fileName,
                     fileSize = cacheFile.length(),
-                    mimeType = mimeType,
+                    mimeType = context.contentResolver.getType(uri) ?: "image/jpeg",
                     localPath = cacheFile.absolutePath,
                     source = ClipboardSource.LOCAL,
                     contentHash = ClipboardItem.generateContentHash(fileHash, ClipboardType.IMAGE, fileName),
@@ -197,6 +226,42 @@ class ClipboardManager(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "处理图片URI时出错", e)
+            null
+        }
+    }
+    
+    /**
+     * 从URI获取文件名
+     */
+    private fun getFileNameFromUri(uri: Uri): String? {
+        return try {
+            // 尝试通过ContentResolver查询文件名
+            val projection = arrayOf(
+                android.provider.MediaStore.MediaColumns.DISPLAY_NAME
+            )
+            
+            context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst()) {
+                    return cursor.getString(nameIndex)
+                }
+            }
+            
+            // 如果查询失败，尝试从URI路径中提取文件名
+            val path = uri.path
+            if (!path.isNullOrEmpty()) {
+                val segments = path.split("/")
+                if (segments.isNotEmpty()) {
+                    val lastSegment = segments.last()
+                    if (lastSegment.isNotEmpty()) {
+                        return lastSegment
+                    }
+                }
+            }
+            
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "从URI获取文件名时出错", e)
             null
         }
     }
