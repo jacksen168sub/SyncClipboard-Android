@@ -18,6 +18,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.net.Uri
+import android.provider.DocumentsContract
 import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.presentation.component.UpdateDialog
 import com.jacksen168.syncclipboard.presentation.component.NoUpdateDialog
@@ -31,11 +33,13 @@ import com.jacksen168.syncclipboard.presentation.viewmodel.UpdateViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = viewModel()
+    viewModel: SettingsViewModel = viewModel(),
+    onDownloadLocationRequest: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val serverConfig by viewModel.serverConfig.collectAsState()
     val appSettings by viewModel.appSettings.collectAsState()
+    val requestFileSelection by viewModel.requestFileSelection.collectAsState()
     val context = LocalContext.current
     
     // 错误提示
@@ -49,6 +53,16 @@ fun SettingsScreen(
     LaunchedEffect(uiState.successMessage) {
         uiState.successMessage?.let {
             // 这里可以显示SnackBar
+        }
+    }
+    
+    // 监听文件选择请求
+    LaunchedEffect(requestFileSelection) {
+        if (requestFileSelection) {
+            // 清除请求状态
+            viewModel.clearFileSelectionRequest()
+            // 调用外部传入的回调
+            onDownloadLocationRequest()
         }
     }
     
@@ -80,6 +94,9 @@ fun SettingsScreen(
                 onRewriteAfterUnlockChange = viewModel::updateRewriteAfterUnlock,
                 onDeviceNameChange = viewModel::updateDeviceName,
                 onClipboardHistoryCountChange = viewModel::updateClipboardHistoryCount,
+                onDownloadLocationChange = viewModel::updateDownloadLocation,
+                onRequestDownloadLocationSelection = viewModel::requestDownloadLocationSelection,
+                onAutoSaveFilesChange = viewModel::updateAutoSaveFiles,
                 syncIntervalSeconds = viewModel.getSyncIntervalSeconds()
             )
         }
@@ -346,6 +363,9 @@ fun SyncSettingsCard(
     onRewriteAfterUnlockChange: (Boolean) -> Unit,
     onDeviceNameChange: (String) -> Unit,
     onClipboardHistoryCountChange: (Int) -> Unit,
+    onDownloadLocationChange: (String) -> Unit,
+    onRequestDownloadLocationSelection: () -> Unit,
+    onAutoSaveFilesChange: (Boolean) -> Unit,
     syncIntervalSeconds: Long
 ) {
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -451,6 +471,36 @@ fun SyncSettingsCard(
                     ) {
                         Text("${appSettings.clipboardHistoryCount}条")
                     }
+                }
+            )
+            
+            // 文件下载位置
+            SettingItem(
+                title = "文件下载位置",
+                description = if (appSettings.downloadLocation.isEmpty()) "点击选择下载位置" else getReadablePathFromUri(appSettings.downloadLocation),
+                icon = Icons.Default.Folder,
+                trailing = {
+                    TextButton(
+                        onClick = { 
+                            // 触发文件选择请求
+                            onRequestDownloadLocationSelection()
+                        }
+                    ) {
+                        Text(if (appSettings.downloadLocation.isEmpty()) "选择" else "更改")
+                    }
+                }
+            )
+            
+            // 文件自动保存开关
+            SettingItem(
+                title = "文件自动保存",
+                description = "开启后自动保存接收到的文件",
+                icon = Icons.Default.Save,
+                trailing = {
+                    Switch(
+                        checked = appSettings.autoSaveFiles,
+                        onCheckedChange = onAutoSaveFilesChange
+                    )
                 }
             )
         }
@@ -906,5 +956,36 @@ fun ExperimentalFeaturesCard(
                 }
             )
         }
+    }
+}
+
+/**
+ * 从URI获取可读的路径描述
+ */
+fun getReadablePathFromUri(uriString: String): String {
+    return try {
+        if (uriString.startsWith("content://")) {
+            val uri = Uri.parse(uriString)
+            // 获取文档树的根路径
+            val docId = DocumentsContract.getTreeDocumentId(uri)
+            // 解码文档ID
+            val decodedId = java.net.URLDecoder.decode(docId, "UTF-8")
+            // 尝试获取更友好的路径表示
+            when {
+                decodedId.startsWith("primary:") -> {
+                    "/存储/下载"
+                }
+                decodedId.startsWith("raw:") -> {
+                    decodedId.substring(4)
+                }
+                else -> {
+                    "已选择文件夹"
+                }
+            }
+        } else {
+            uriString
+        }
+    } catch (e: Exception) {
+        uriString
     }
 }

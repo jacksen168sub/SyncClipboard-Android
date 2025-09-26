@@ -4,8 +4,10 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -30,6 +33,7 @@ import com.jacksen168.syncclipboard.presentation.component.UpdateDialog
 import com.jacksen168.syncclipboard.presentation.navigation.SyncClipboardNavigation
 import com.jacksen168.syncclipboard.presentation.theme.SyncClipboardTheme
 import com.jacksen168.syncclipboard.presentation.viewmodel.UpdateViewModel
+import com.jacksen168.syncclipboard.presentation.viewmodel.SettingsViewModel
 import com.jacksen168.syncclipboard.service.ClipboardSyncService
 import com.jacksen168.syncclipboard.util.PermissionManager
 
@@ -53,12 +57,25 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    // 文件夹选择启动器
+    private val selectFolderLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            // 保存选择的文件夹URI
+            saveDownloadLocation(selectedUri)
+        }
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
         // 应用隐藏在多任务页面设置（必须在最早期设置）
         applyHideInRecentsSettings()
+        
+        // 检查并恢复URI权限
+        checkAndRestoreUriPermissions()
         
         // 检查并请求通知权限（Android 13+）
         checkNotificationPermission()
@@ -85,6 +102,9 @@ class MainActivity : ComponentActivity() {
                 val showUpdateDialog by updateViewModel.showUpdateDialog.collectAsState()
                 val updateInfo by updateViewModel.updateInfo.collectAsState()
                 
+                // SettingsViewModel
+                val settingsViewModel: SettingsViewModel = viewModel()
+                
                 // 检查权限
                 LaunchedEffect(Unit) {
                     permissionStatus = PermissionManager.checkAllPermissions(this@MainActivity)
@@ -100,7 +120,12 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SyncClipboardNavigation()
+                    SyncClipboardNavigation(
+                        onDownloadLocationRequest = {
+                            // 启动文件夹选择器
+                            selectFolderLauncher.launch(null)
+                        }
+                    )
                 }
                 
                 // 权限请求对话框
@@ -125,6 +150,29 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+            }
+        }
+    }
+    
+    /**
+     * 检查并恢复URI权限
+     */
+    private fun checkAndRestoreUriPermissions() {
+        lifecycleScope.launch {
+            try {
+                val settingsRepository = (application as SyncClipboardApplication).settingsRepository
+                val appSettings = settingsRepository.appSettingsFlow.first()
+                
+                // 检查下载位置是否为URI格式
+                if (appSettings.downloadLocation.startsWith("content://")) {
+                    val clipboardRepository = (application as SyncClipboardApplication).clipboardRepository
+                    if (!clipboardRepository.checkAndRestoreUriPermission(appSettings.downloadLocation)) {
+                        Log.w(TAG, "下载位置URI权限无效，可能需要重新选择文件夹")
+                        // 可以在这里显示一个提示，让用户重新选择下载位置
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "检查URI权限时出错", e)
             }
         }
     }
@@ -357,6 +405,76 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "重新应用隐藏设置失败", e)
             }
+        }
+    }
+    
+    /**
+     * 保存下载位置
+     */
+    private fun saveDownloadLocation(uri: Uri) {
+        // 获取持久化权限
+        val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        try {
+            contentResolver.takePersistableUriPermission(uri, takeFlags)
+            Log.d(TAG, "成功获取持久化URI权限: $uri")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "获取持久化URI权限失败", e)
+        }
+        
+        // 保存URI到应用设置
+        lifecycleScope.launch {
+            try {
+                val settingsRepository = (application as SyncClipboardApplication).settingsRepository
+                val appSettings = settingsRepository.appSettingsFlow.first()
+                
+                // 获取可读的路径描述
+                val readablePath = getReadablePathFromUri(uri)
+                
+                val updatedSettings = appSettings.copy(downloadLocation = uri.toString())
+                settingsRepository.saveAppSettings(updatedSettings)
+                Log.d(TAG, "下载位置已保存: $uri (可读路径: $readablePath)")
+                
+                // 验证设置是否正确保存
+                kotlinx.coroutines.delay(100) // 等待一下确保保存完成
+                val savedSettings = settingsRepository.appSettingsFlow.first()
+                if (savedSettings.downloadLocation == uri.toString()) {
+                    Log.d(TAG, "设置保存验证成功")
+                } else {
+                    Log.e(TAG, "设置保存验证失败，期望: ${uri.toString()}，实际: ${savedSettings.downloadLocation}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "保存下载位置时出错", e)
+            }
+        }
+    }
+    
+    /**
+     * 从URI获取可读的路径描述
+     */
+    private fun getReadablePathFromUri(uri: Uri): String {
+        return try {
+            if (DocumentsContract.isDocumentUri(this, uri)) {
+                // 获取文档树的根路径
+                val docId = DocumentsContract.getTreeDocumentId(uri)
+                // 解码文档ID
+                val decodedId = java.net.URLDecoder.decode(docId, "UTF-8")
+                // 尝试获取更友好的路径表示
+                when {
+                    decodedId.startsWith("primary:") -> {
+                        "/存储/下载"
+                    }
+                    decodedId.startsWith("raw:") -> {
+                        decodedId.substring(4)
+                    }
+                    else -> {
+                        "已选择文件夹"
+                    }
+                }
+            } else {
+                uri.toString()
+            }
+        } catch (e: Exception) {
+            uri.toString()
         }
     }
 }

@@ -42,6 +42,8 @@ class SettingsRepository(private val context: Context) {
         private val HIDE_IN_RECENTS_KEY = booleanPreferencesKey("hide_in_recents")
         private val REWRITE_AFTER_UNLOCK_KEY = booleanPreferencesKey("rewrite_after_unlock")
         private val FOREGROUND_SERVICE_KEEPALIVE_KEY = booleanPreferencesKey("foreground_service_keepalive")
+        private val DOWNLOAD_LOCATION_KEY = stringPreferencesKey("download_location")
+        private val AUTO_SAVE_FILES_KEY = booleanPreferencesKey("auto_save_files")
         
         // 密码加密密钥（简单的对称加密）
         private const val ENCRYPTION_KEY = "jascksen168_SyncClipboard"
@@ -74,7 +76,9 @@ class SettingsRepository(private val context: Context) {
             clipboardHistoryCount = preferences[CLIPBOARD_HISTORY_COUNT_KEY] ?: 10,
             hideInRecents = preferences[HIDE_IN_RECENTS_KEY] ?: false,
             rewriteAfterUnlock = preferences[REWRITE_AFTER_UNLOCK_KEY] ?: true,
-            foregroundServiceKeepalive = preferences[FOREGROUND_SERVICE_KEEPALIVE_KEY] ?: false
+            foregroundServiceKeepalive = preferences[FOREGROUND_SERVICE_KEEPALIVE_KEY] ?: false,
+            downloadLocation = preferences[DOWNLOAD_LOCATION_KEY] ?: "",
+            autoSaveFiles = preferences[AUTO_SAVE_FILES_KEY] ?: false
         )
     }
     
@@ -106,6 +110,8 @@ class SettingsRepository(private val context: Context) {
             preferences[HIDE_IN_RECENTS_KEY] = settings.hideInRecents
             preferences[REWRITE_AFTER_UNLOCK_KEY] = settings.rewriteAfterUnlock
             preferences[FOREGROUND_SERVICE_KEEPALIVE_KEY] = settings.foregroundServiceKeepalive
+            preferences[DOWNLOAD_LOCATION_KEY] = settings.downloadLocation
+            preferences[AUTO_SAVE_FILES_KEY] = settings.autoSaveFiles
         }
     }
     

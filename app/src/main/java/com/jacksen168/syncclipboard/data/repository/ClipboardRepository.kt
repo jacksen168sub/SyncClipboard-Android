@@ -12,11 +12,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Response
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import android.content.ContentResolver
+import android.net.Uri
+import android.os.Environment
+import android.provider.DocumentsContract
+import androidx.documentfile.provider.DocumentFile
+import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody
 
 /**
  * 剪贴板数据仓库
@@ -104,6 +111,8 @@ class ClipboardRepository(
                 deduplicatedItems.add(group.first())
             } else {
                 // 有重复,需要合并
+                Log.d(TAG, "发现重复记录，开始合并: hash=$hash, count=${group.size}")
+                
                 val localItems = group.filter { it.source == ClipboardSource.LOCAL }
                 val remoteItems = group.filter { it.source == ClipboardSource.REMOTE }
                 val mergedItems = group.filter { it.source == ClipboardSource.MERGED }
@@ -114,7 +123,11 @@ class ClipboardRepository(
                         val latest = mergedItems.maxByOrNull { it.lastModified }!!
                         deduplicatedItems.add(latest)
                         // 删除其他重复项
-                        group.filter { it.id != latest.id }.forEach { clipboardDao.deleteItem(it) }
+                        group.filter { it.id != latest.id }.forEach { 
+                            Log.d(TAG, "删除重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
+                            clipboardDao.deleteItem(it) 
+                        }
+                        Log.d(TAG, "使用已合并记录: id=${latest.id}, type=${latest.type}")
                     }
                     // 如果同时有本地和远程项,合并为一个项
                     localItems.isNotEmpty() && remoteItems.isNotEmpty() -> {
@@ -132,16 +145,27 @@ class ClipboardRepository(
                         // 更新数据库
                         clipboardDao.insertItem(merged)
                         deduplicatedItems.add(merged)
+                        
+                        Log.d(TAG, "合并本地和远程记录: localId=${localLatest.id}, remoteId=${remoteLatest.id}, mergedId=${merged.id}")
 
                         // 删除原始重复项
-                        group.forEach { if (it.id != merged.id) clipboardDao.deleteItem(it) }
+                        group.forEach { 
+                            if (it.id != merged.id) {
+                                Log.d(TAG, "删除原始重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
+                                clipboardDao.deleteItem(it) 
+                            }
+                        }
                     }
                     // 只有本地项或只有远程项,保留最新的
                     else -> {
                         val latest = group.maxByOrNull { it.lastModified }!!
                         deduplicatedItems.add(latest)
                         // 删除旧的重复项
-                        group.filter { it.id != latest.id }.forEach { clipboardDao.deleteItem(it) }
+                        group.filter { it.id != latest.id }.forEach { 
+                            Log.d(TAG, "删除旧重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
+                            clipboardDao.deleteItem(it) 
+                        }
+                        Log.d(TAG, "保留最新记录: id=${latest.id}, type=${latest.type}, source=${latest.source}")
                     }
                 }
             }
@@ -196,6 +220,7 @@ class ClipboardRepository(
                 localPath = localPath ?: existing.localPath
             )
             clipboardDao.updateItem(updatedItem)
+            Log.d(TAG, "合并剪贴板记录: id=${updatedItem.id}, type=${updatedItem.type}, source=${updatedItem.source}")
             updatedItem
         } else {
             // 创建新项目
@@ -214,6 +239,7 @@ class ClipboardRepository(
                 lastModified = currentTime
             )
             clipboardDao.insertItem(newItem)
+            Log.d(TAG, "添加剪贴板记录: id=${newItem.id}, type=${newItem.type}, source=${newItem.source}")
             newItem
         }
 
@@ -531,6 +557,8 @@ class ClipboardRepository(
      */
     suspend fun deleteItem(item: ClipboardItem): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            Log.d(TAG, "删除剪贴板记录: id=${item.id}, type=${item.type}, source=${item.source}")
+            
             // 如果是图片类型,先清理本地缓存文件
             if (item.type == ClipboardType.IMAGE && !item.localPath.isNullOrEmpty()) {
                 cleanupImageFileCache(item.localPath)
@@ -908,7 +936,7 @@ class ClipboardRepository(
             // 上传文件
             Log.d(TAG, "开始上传图片文件: $fileName, 大小: ${file.length()} bytes")
 
-            val requestBody = okhttp3.RequestBody.create(
+            val requestBody = RequestBody.create(
                 "image/*".toMediaType(),
                 file
             )
@@ -965,7 +993,219 @@ class ClipboardRepository(
             ""
         }
     }
+
+    /**
+     * 下载文件并保存到指定位置
+     */
+    suspend fun downloadFile(item: ClipboardItem, targetPath: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "开始下载文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
+            
+            // 检查是否为文件类型
+            if (item.type != ClipboardType.FILE && item.type != ClipboardType.IMAGE) {
+                Log.w(TAG, "只能下载文件类型的内容，当前类型: ${item.type}")
+                return@withContext Result.failure(Exception("只能下载文件类型的内容"))
+            }
+            
+            // 如果是图片类型且有本地路径，直接复制文件
+            if (item.type == ClipboardType.IMAGE && !item.localPath.isNullOrEmpty()) {
+                Log.d(TAG, "图片文件已有本地缓存，直接复制: ${item.localPath}")
+                val sourceFile = File(item.localPath)
+                if (sourceFile.exists()) {
+                    val fileName = item.fileName ?: "clipboard_image_${System.currentTimeMillis()}.jpg"
+                    val targetFile = if (targetPath.startsWith("content://")) {
+                        // 如果是URI格式，需要特殊处理
+                        val uri = Uri.parse(targetPath)
+                        Log.d(TAG, "目标路径为URI格式: $uri")
+                        // 使用DocumentFile API处理
+                        try {
+                            val documentFile = DocumentFile.fromTreeUri(context, uri)
+                            if (documentFile != null && documentFile.exists() && documentFile.isDirectory) {
+                                val newFile = documentFile.createFile(item.mimeType ?: "image/*", fileName)
+                                if (newFile != null) {
+                                    copyFileToDocument(sourceFile, newFile.uri)
+                                    return@withContext Result.success("已保存到: ${documentFile.name}/${fileName}")
+                                }
+                            } else {
+                                Log.w(TAG, "DocumentFile不存在或不是目录: $documentFile")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "使用DocumentFile处理URI时出错", e)
+                        }
+                        // 如果DocumentFile处理失败，使用默认下载目录
+                        val downloadDir = File(context.getExternalFilesDir(null), "downloads")
+                        if (!downloadDir.exists()) downloadDir.mkdirs()
+                        File(downloadDir, fileName)
+                    } else {
+                        Log.d(TAG, "目标路径为文件路径: $targetPath")
+                        File(targetPath)
+                    }
+                    
+                    val targetDir = targetFile.parentFile
+                    if (targetDir != null && !targetDir.exists()) {
+                        Log.d(TAG, "创建目标目录: ${targetDir.absolutePath}")
+                        targetDir.mkdirs()
+                    }
+                    
+                    Log.d(TAG, "从 ${sourceFile.absolutePath} 复制到 ${targetFile.absolutePath}")
+                    sourceFile.copyTo(targetFile, overwrite = true)
+                    Log.d(TAG, "文件复制完成: ${targetFile.absolutePath}")
+                    return@withContext Result.success(targetFile.absolutePath)
+                } else {
+                    Log.w(TAG, "本地缓存文件不存在: ${item.localPath}")
+                }
+            }
+            
+            // 对于其他文件类型，需要从服务器下载
+            val api = apiService ?: return@withContext Result.failure(Exception("API服务未初始化"))
+            Log.d(TAG, "从服务器下载文件")
+            
+            // 确保目标目录存在
+            val targetFile = if (targetPath.startsWith("content://")) {
+                // 如果是URI格式，需要特殊处理
+                val uri = Uri.parse(targetPath)
+                Log.d(TAG, "目标路径为URI格式: $uri")
+                // 使用DocumentFile API处理
+                try {
+                    val documentFile = DocumentFile.fromTreeUri(context, uri)
+                    if (documentFile != null && documentFile.exists() && documentFile.isDirectory) {
+                        val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
+                        val newFile = documentFile.createFile(item.mimeType ?: "*/*", fileName)
+                        if (newFile != null) {
+                            // 下载文件并写入DocumentFile
+                            val fileNameForDownload = item.fileName ?: return@withContext Result.failure(Exception("文件名为空"))
+                            Log.d(TAG, "开始下载文件: $fileNameForDownload")
+                            val response = api.downloadFile(fileNameForDownload)
+                            
+                            if (response.isSuccessful) {
+                                Log.d(TAG, "服务器响应成功，开始保存文件")
+                                response.body()?.let { responseBody ->
+                                    val inputStream = responseBody.byteStream()
+                                    val outputStream = context.contentResolver.openOutputStream(newFile.uri)
+                                    
+                                    if (outputStream != null) {
+                                        inputStream.use { input ->
+                                            outputStream.use { output ->
+                                                input.copyTo(output)
+                                            }
+                                        }
+                                        Log.d(TAG, "文件下载完成并保存到DocumentFile")
+                                        return@withContext Result.success("已保存到: ${documentFile.name}/${fileName}")
+                                    } else {
+                                        Log.e(TAG, "无法打开DocumentFile输出流")
+                                    }
+                                }
+                            }
+                            return@withContext Result.failure(Exception("下载响应为空"))
+                        } else {
+                            Log.e(TAG, "无法创建DocumentFile文件")
+                        }
+                    } else {
+                        Log.w(TAG, "DocumentFile不存在或不是目录: $documentFile")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "使用DocumentFile处理URI时出错", e)
+                }
+                // 如果DocumentFile处理失败，使用默认下载目录
+                val downloadDir = File(context.getExternalFilesDir(null), "downloads")
+                if (!downloadDir.exists()) {
+                    Log.d(TAG, "创建下载目录: ${downloadDir.absolutePath}")
+                    downloadDir.mkdirs()
+                }
+                val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
+                File(downloadDir, fileName)
+            } else {
+                Log.d(TAG, "目标路径为文件路径: $targetPath")
+                File(targetPath)
+            }
+            
+            val targetDir = targetFile.parentFile
+            if (targetDir != null && !targetDir.exists()) {
+                Log.d(TAG, "创建目标目录: ${targetDir.absolutePath}")
+                targetDir.mkdirs()
+            }
+            
+            // 下载文件
+            val fileName = item.fileName ?: return@withContext Result.failure(Exception("文件名为空"))
+            Log.d(TAG, "开始下载文件: $fileName")
+            val response = api.downloadFile(fileName)
+            
+            if (response.isSuccessful) {
+                Log.d(TAG, "服务器响应成功，开始保存文件")
+                response.body()?.let { responseBody ->
+                    val inputStream = responseBody.byteStream()
+                    val outputStream = targetFile.outputStream()
+                    
+                    inputStream.use { input ->
+                        outputStream.use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    
+                    Log.d(TAG, "文件下载完成: ${targetFile.absolutePath}")
+                    return@withContext Result.success(targetFile.absolutePath)
+                } ?: Result.failure(Exception("下载响应为空"))
+            } else {
+                Log.e(TAG, "下载失败: HTTP ${response.code()}")
+                Result.failure(Exception("下载失败: HTTP ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "下载文件时出错", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * 将文件复制到DocumentFile
+     */
+    private fun copyFileToDocument(sourceFile: File, targetUri: Uri) {
+        try {
+            val inputStream = sourceFile.inputStream()
+            val outputStream = context.contentResolver.openOutputStream(targetUri)
+            
+            if (outputStream != null) {
+                inputStream.use { input ->
+                    outputStream.use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "复制文件到DocumentFile时出错", e)
+        }
+    }
+    
+    /**
+     * 检查并恢复URI权限
+     */
+    fun checkAndRestoreUriPermission(uriString: String): Boolean {
+        return try {
+            if (uriString.startsWith("content://")) {
+                val uri = Uri.parse(uriString)
+                val permissions = context.contentResolver.persistedUriPermissions
+                val hasPermission = permissions.any { it.uri == uri && it.isReadPermission && it.isWritePermission }
+                
+                if (!hasPermission) {
+                    Log.w(TAG, "URI权限已丢失: $uriString")
+                    return false
+                }
+                
+                Log.d(TAG, "URI权限有效: $uriString")
+                true
+            } else {
+                // 普通文件路径不需要权限检查
+                true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "检查URI权限时出错", e)
+            false
+        }
+    }
 }
+
+
+
+
 
 
 

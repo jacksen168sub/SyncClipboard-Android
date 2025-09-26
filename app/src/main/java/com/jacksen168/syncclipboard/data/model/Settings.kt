@@ -24,7 +24,9 @@ data class AppSettings(
     val clipboardHistoryCount: Int = 10, // 剪贴板历史显示数量，默认10条
     val hideInRecents: Boolean = false, // 在多任务页面隐藏应用
     val rewriteAfterUnlock: Boolean = true, // 解锁后自动重新写入剪贴板同步过来的内容
-    val foregroundServiceKeepalive: Boolean = false // 前台服务保活功能
+    val foregroundServiceKeepalive: Boolean = false, // 前台服务保活功能
+    val downloadLocation: String = "", // 文件下载位置
+    val autoSaveFiles: Boolean = false // 文件自动保存开关
 )
 
 /**

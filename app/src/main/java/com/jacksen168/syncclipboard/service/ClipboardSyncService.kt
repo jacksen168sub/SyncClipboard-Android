@@ -328,11 +328,98 @@ class ClipboardSyncService : Service() {
                 return
             }
             
+            // 检查是否需要自动保存文件
+            if ((item.type == ClipboardType.FILE || item.type == ClipboardType.IMAGE) && 
+                item.source == ClipboardSource.REMOTE) {
+                val settings = settingsRepository.appSettingsFlow.first()
+                if (settings.autoSaveFiles) {
+                    Log.d(TAG, "自动保存文件: ${item.fileName}")
+                    autoSaveFile(item)
+                }
+            }
+            
             // 非锁屏状态，正常处理
             writeToClipboard(item)
             
         } catch (e: Exception) {
             Log.e(TAG, "更新剪贴板时出错", e)
+        }
+    }
+    
+    /**
+     * 自动保存文件
+     */
+    private suspend fun autoSaveFile(item: ClipboardItem) {
+        try {
+            Log.d(TAG, "开始自动保存文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
+            
+            // 获取应用设置
+            val settings = settingsRepository.appSettingsFlow.first()
+            
+            // 检查是否有设置下载位置
+            val downloadLocation = if (settings.downloadLocation.isNotEmpty()) {
+                settings.downloadLocation
+            } else {
+                // 使用默认下载目录
+                val defaultDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath
+                Log.d(TAG, "使用默认下载目录: $defaultDir")
+                defaultDir
+            }
+            
+            Log.d(TAG, "自动保存位置: $downloadLocation")
+            
+            // 检查URI权限（如果是URI格式）
+            if (downloadLocation.startsWith("content://")) {
+                if (!clipboardRepository.checkAndRestoreUriPermission(downloadLocation)) {
+                    Log.w(TAG, "URI权限无效，使用默认下载目录")
+                    // 使用默认下载目录作为回退方案
+                    val defaultDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath
+                    val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
+                    val targetPath = "$defaultDir/$fileName"
+                    Log.d(TAG, "使用默认下载目录: $targetPath")
+                    
+                    // 调用Repository下载文件
+                    val result = clipboardRepository.downloadFile(item, targetPath)
+                    result.onSuccess { path -> 
+                        Log.d(TAG, "文件自动保存成功: $path")
+                        showSyncNotification("文件已自动保存到: ${fileName}")
+                    }.onFailure { e -> 
+                        Log.e(TAG, "文件自动保存失败", e)
+                        showSyncNotification("文件自动保存失败: ${e.message}")
+                    }
+                    return
+                }
+            }
+            
+            // 构造目标文件路径
+            val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
+            val targetPath = if (downloadLocation.startsWith("content://")) {
+                // 如果是URI格式，直接使用
+                Log.d(TAG, "使用URI格式下载位置: $downloadLocation")
+                downloadLocation
+            } else {
+                // 如果是普通路径格式，构造完整路径
+                val fullPath = "$downloadLocation/$fileName"
+                Log.d(TAG, "使用文件路径下载位置: $fullPath")
+                fullPath
+            }
+            
+            Log.d(TAG, "自动保存目标路径: $targetPath")
+            
+            // 调用Repository下载文件
+            Log.d(TAG, "调用Repository自动保存文件")
+            val result = clipboardRepository.downloadFile(item, targetPath)
+            result.onSuccess { path -> 
+                Log.d(TAG, "文件自动保存成功: $path")
+                showSyncNotification("文件已自动保存到: ${fileName}")
+            }.onFailure { e -> 
+                Log.e(TAG, "文件自动保存失败", e)
+                showSyncNotification("文件自动保存失败: ${e.message}")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "自动保存文件时出错", e)
+            showSyncNotification("文件自动保存出错: ${e.message}")
         }
     }
     
@@ -369,7 +456,9 @@ class ClipboardSyncService : Service() {
                 }
                 ClipboardType.FILE -> {
                     // 文件类型的处理
-                    Log.d(TAG, "文件类型尚未完全实现")
+                    Log.d(TAG, "文件类型不写入剪贴板")
+                    // 清理剪贴板，防止文本内容顶替服务端文件
+                    clipboardManager.clearClipboard()
                 }
             }
             
@@ -661,15 +750,15 @@ class ClipboardSyncService : Service() {
                             Log.d(TAG, "屏幕关闭")
                             isScreenLocked = true
                         }
+                        Intent.ACTION_SCREEN_ON -> {
+                            Log.d(TAG, "屏幕点亮")
+                            // 屏幕点亮不一定解锁，需要等待USER_PRESENT
+                        }
                         Intent.ACTION_USER_PRESENT -> {
                             Log.d(TAG, "用户解锁")
                             isScreenLocked = false
                             // 处理解锁后的逻辑
                             handleScreenUnlocked()
-                        }
-                        Intent.ACTION_SCREEN_ON -> {
-                            Log.d(TAG, "屏幕点亮")
-                            // 屏幕点亮不一定解锁，需要等待USER_PRESENT
                         }
                     }
                 }

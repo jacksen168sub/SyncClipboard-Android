@@ -134,6 +134,7 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation("androidx.documentfile:documentfile:1.0.1")
 
     // Networking
     implementation(libs.retrofit)

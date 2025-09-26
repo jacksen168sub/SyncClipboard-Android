@@ -30,7 +30,9 @@ sealed class Screen(val route: String, val title: String, val icon: androidx.com
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SyncClipboardNavigation() {
+fun SyncClipboardNavigation(
+    onDownloadLocationRequest: () -> Unit = {}
+) {
     val navController = rememberNavController()
     
     val items = listOf(
@@ -83,7 +85,9 @@ fun SyncClipboardNavigation() {
                 HomeScreen()
             }
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(
+                    onDownloadLocationRequest = onDownloadLocationRequest
+                )
             }
         }
     }

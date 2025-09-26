@@ -32,6 +32,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _appSettings = MutableStateFlow(AppSettings())
     val appSettings: StateFlow<AppSettings> = _appSettings.asStateFlow()
     
+    // 添加文件选择请求状态
+    private val _requestFileSelection = MutableStateFlow(false)
+    val requestFileSelection: StateFlow<Boolean> = _requestFileSelection.asStateFlow()
+    
     init {
         loadSettings()
     }
@@ -339,6 +343,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * 更新文件下载位置
+     */
+    fun updateDownloadLocation(location: String) {
+        _appSettings.value = _appSettings.value.copy(downloadLocation = location)
+        saveAppSettings()
+    }
+    
+    /**
+     * 更新文件自动保存开关
+     */
+    fun updateAutoSaveFiles(enabled: Boolean) {
+        _appSettings.value = _appSettings.value.copy(autoSaveFiles = enabled)
+        saveAppSettings()
+    }
+    
+    /**
      * 更新剪贴板历史显示数量
      */
     fun updateClipboardHistoryCount(count: Int) {
@@ -414,6 +434,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun resetAppSettings() {
         _appSettings.value = AppSettings()
         saveAppSettings()
+    }
+    
+    /**
+     * 触发文件选择请求
+     */
+    fun requestDownloadLocationSelection() {
+        _requestFileSelection.value = true
+    }
+    
+    /**
+     * 清除文件选择请求状态
+     */
+    fun clearFileSelectionRequest() {
+        _requestFileSelection.value = false
     }
 }
 

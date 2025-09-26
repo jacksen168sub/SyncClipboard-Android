@@ -1,5 +1,10 @@
 package com.jacksen168.syncclipboard.presentation.screen
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Environment
+import android.widget.Toast
+import java.io.File
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -142,6 +147,9 @@ fun HomeScreen(
             onItemDelete = { item ->
                 viewModel.deleteClipboardItem(item)
             },
+            onItemDownload = { item ->
+                viewModel.downloadFile(item, context)
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -179,8 +187,11 @@ fun ClipboardHistoryList(
     items: List<ClipboardItem>,
     onItemClick: (ClipboardItem) -> Unit,
     onItemDelete: (ClipboardItem) -> Unit,
+    onItemDownload: ((ClipboardItem) -> Unit)? = null, // 添加下载回调参数
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current // 获取上下文
+    
     if (items.isEmpty()) {
         Box(
             modifier = modifier,
@@ -211,8 +222,24 @@ fun ClipboardHistoryList(
             items(items) { item ->
                 ClipboardItemCard(
                     item = item,
-                    onClick = { onItemClick(item) },
-                    onDelete = { onItemDelete(item) }
+                    onClick = { 
+                        // 根据项目类型处理点击事件
+                        if (item.type == ClipboardType.FILE) {
+                            // 对于文件类型，检查是否已下载
+                            if (isFileDownloaded(item, context)) {
+                                // 已下载则打开文件位置
+                                openFileLocation(item, context)
+                            } else {
+                                // 未下载则下载文件
+                                onItemDownload?.invoke(item)
+                            }
+                        } else {
+                            // 其他类型保持原有逻辑
+                            onItemClick(item)
+                        }
+                    },
+                    onDelete = { onItemDelete(item) },
+                    onDownload = onItemDownload?.let { { it(item) } } // 传递下载回调
                 )
             }
         }
@@ -226,13 +253,31 @@ fun ClipboardHistoryList(
 fun ClipboardItemCard(
     item: ClipboardItem,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onDownload: (() -> Unit)? = null // 添加下载回调
 ) {
+    val context = LocalContext.current
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clickable { onClick() },
+            .clickable { 
+                // 根据项目类型处理点击事件
+                if (item.type == ClipboardType.FILE) {
+                    // 对于文件类型，检查是否已下载
+                    if (isFileDownloaded(item, context)) {
+                        // 已下载则打开文件位置
+                        openFileLocation(item, context)
+                    } else {
+                        // 未下载则触发下载
+                        onDownload?.invoke()
+                    }
+                } else {
+                    // 其他类型保持原有逻辑
+                    onClick()
+                }
+            },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -267,14 +312,41 @@ fun ClipboardItemCard(
                 }
                 
                 Row {
-                    IconButton(
-                        onClick = onClick // 使用传入的onClick回调
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FileCopy,
-                            contentDescription = stringResource(R.string.copy_to_clipboard),
-                            modifier = Modifier.size(16.dp)
-                        )
+                    // 根据项目类型显示不同的图标
+                    if (item.type == ClipboardType.FILE && onDownload != null) {
+                        // 文件类型显示下载图标
+                        IconButton(onClick = onDownload) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "下载文件",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    } else {
+                        // 其他类型显示复制图标
+                        IconButton(
+                            onClick = { 
+                                if (item.type == ClipboardType.FILE) {
+                                    // 对于文件类型，检查是否已下载
+                                    if (isFileDownloaded(item, context)) {
+                                        // 已下载则打开文件位置
+                                        openFileLocation(item, context)
+                                    } else {
+                                        // 未下载则触发下载
+                                        onDownload?.invoke()
+                                    }
+                                } else {
+                                    // 其他类型保持原有逻辑
+                                    onClick()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileCopy,
+                                contentDescription = stringResource(R.string.copy_to_clipboard),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                     
                     IconButton(onClick = onDelete) {
@@ -546,3 +618,106 @@ fun ImagePreview(
     }
 }
 
+/**
+ * 检查文件是否已下载
+ */
+fun isFileDownloaded(item: ClipboardItem, context: android.content.Context): Boolean {
+    // 首先检查localPath是否存在且文件存在
+    if (!item.localPath.isNullOrEmpty()) {
+        val file = File(item.localPath)
+        if (file.exists()) {
+            return true
+        }
+    }
+    
+    // 如果没有localPath或文件不存在，检查默认下载位置
+    if (!item.fileName.isNullOrEmpty()) {
+        // 检查公共下载目录
+        val publicDownloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val fileInPublicDir = File(publicDownloadDir, item.fileName)
+        if (fileInPublicDir.exists()) {
+            return true
+        }
+        
+        // 检查应用私有下载目录
+        val appDownloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        if (appDownloadDir != null) {
+            val fileInAppDir = File(appDownloadDir, item.fileName)
+            if (fileInAppDir.exists()) {
+                return true
+            }
+        }
+    }
+    
+    return false
+}
+
+/**
+ * 打开文件位置
+ */
+fun openFileLocation(item: ClipboardItem, context: android.content.Context) {
+    try {
+        var fileToOpen: File? = null
+        
+        // 首先检查localPath
+        if (!item.localPath.isNullOrEmpty()) {
+            val file = File(item.localPath)
+            if (file.exists()) {
+                fileToOpen = file
+            }
+        }
+        
+        // 如果没有localPath或文件不存在，检查默认下载位置
+        if (fileToOpen == null && !item.fileName.isNullOrEmpty()) {
+            // 检查公共下载目录
+            val publicDownloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val fileInPublicDir = File(publicDownloadDir, item.fileName)
+            if (fileInPublicDir.exists()) {
+                fileToOpen = fileInPublicDir
+            }
+        }
+        
+        // 如果找到了文件，打开文件位置
+        if (fileToOpen != null && fileToOpen.exists()) {
+            val uri = Uri.fromFile(fileToOpen)
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.setDataAndType(uri, item.mimeType ?: "*/*")
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                // 如果无法直接打开文件，尝试打开文件所在文件夹
+                openFileDirectory(fileToOpen, context)
+            }
+        } else {
+            Toast.makeText(context, "文件未找到", Toast.LENGTH_SHORT).show()
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "打开文件失败: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+/**
+ * 打开文件所在目录
+ */
+fun openFileDirectory(file: File, context: android.content.Context) {
+    try {
+        val parentDir = file.parentFile
+        if (parentDir != null && parentDir.exists()) {
+            val intent = Intent(Intent.ACTION_VIEW)
+            val uri = Uri.fromFile(parentDir)
+            intent.setDataAndType(uri, "resource/folder")
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                // 如果无法打开文件夹，显示文件路径
+                Toast.makeText(context, "文件路径: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+            }
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "打开文件夹失败: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
+}
