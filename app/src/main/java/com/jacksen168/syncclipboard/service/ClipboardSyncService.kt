@@ -16,6 +16,7 @@ import com.jacksen168.syncclipboard.data.model.ClipboardType
 import com.jacksen168.syncclipboard.data.model.ClipboardSource
 import com.jacksen168.syncclipboard.data.model.ClipboardItem
 import com.jacksen168.syncclipboard.data.model.SyncStatus
+import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.presentation.MainActivity
@@ -32,13 +33,12 @@ class ClipboardSyncService : Service() {
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var clipboardRepository: ClipboardRepository
     private lateinit var clipboardManager: ClipboardManager
-    
+
     // 服务协程作用域
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     
     // 同步状态
     private val _syncStatus = MutableStateFlow(SyncStatus.IDLE)
-    val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
     
     // 自动同步作业
     private var autoSyncJob: Job? = null
@@ -328,10 +328,11 @@ class ClipboardSyncService : Service() {
                 return
             }
             
-            // 检查是否需要自动保存文件
-            if ((item.type == ClipboardType.FILE || item.type == ClipboardType.IMAGE) && 
+            // 检查是否需要自动保存文件(需要自动下载保存图片,下方判断加入” || item.type == ClipboardType.IMAGE“。不过我不想自动下载保存照片,以后有人需要该功能再加个开关好了)
+            if ((item.type == ClipboardType.FILE) &&
                 item.source == ClipboardSource.REMOTE) {
                 val settings = settingsRepository.appSettingsFlow.first()
+                Log.d(TAG, "检查自动保存设置: ${settings.autoSaveFiles}")
                 if (settings.autoSaveFiles) {
                     Log.d(TAG, "自动保存文件: ${item.fileName}")
                     autoSaveFile(item)
@@ -352,8 +353,7 @@ class ClipboardSyncService : Service() {
     private suspend fun autoSaveFile(item: ClipboardItem) {
         try {
             Log.d(TAG, "开始自动保存文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
-            
-            // 获取应用设置
+
             val settings = settingsRepository.appSettingsFlow.first()
             
             // 检查是否有设置下载位置
@@ -569,7 +569,7 @@ class ClipboardSyncService : Service() {
             .setContentTitle(getString(R.string.app_name))
             .setContentText(
                 when {
-                    !showPersistent -> "同步服务已禁用通知"
+                    !showPersistent -> "同步服务已禁用通知(重启生效)"
                     keepaliveEnabled -> "剪贴板同步服务正在运行（保活模式）"
                     else -> getString(R.string.notification_service_running)
                 }
@@ -612,12 +612,12 @@ class ClipboardSyncService : Service() {
             
             builder.addAction(
                 android.R.drawable.ic_menu_rotate,
-                getString(R.string.refresh),
+                getString(R.string.manual_sync),
                 syncPendingIntent
             )
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.cancel),
+                getString(R.string.stop_serve),
                 stopPendingIntent
             )
         }

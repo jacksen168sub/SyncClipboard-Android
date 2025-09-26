@@ -87,6 +87,8 @@
     <string name="delete">删除</string>
     <string name="share">分享</string>
     <string name="download">下载</string>
+    <string name="manual_sync">手动同步</string>
+    <string name="stop_serve">停止服务</string>
     
     <!-- Time formats -->
     <string name="time_now">刚刚</string>

@@ -12,6 +12,7 @@ import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 import android.util.Base64
+import android.util.Log
 
 // 扩展属性创建DataStore
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -113,6 +114,7 @@ class SettingsRepository(private val context: Context) {
             preferences[DOWNLOAD_LOCATION_KEY] = settings.downloadLocation
             preferences[AUTO_SAVE_FILES_KEY] = settings.autoSaveFiles
         }
+        Log.d("SettingsRepository", "保存应用设置")
     }
     
     /**
