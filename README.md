@@ -4,9 +4,8 @@
 
 使用[SyncClipboard](https://github.com/Jeric-X/SyncClipboard/) 作为服务端
 
-<img src="https://github.com/user-attachments/assets/80ef734b-5df7-4751-aa8a-a8428d3b4027" width="320px">
-<img src="https://github.com/user-attachments/assets/d5db3ca1-441b-4cf8-be77-d8f71550b5a2" width="320px">
-
+<img src="https://github.com/user-attachments/assets/80ef734b-5df7-4751-aa8a-a8428d3b4027" width="240px">
+<img src="https://github.com/user-attachments/assets/696f060b-2559-4b76-977e-ff5d5ef9c4ab" width="240px">
 
 ## ✨ 主要功能
 
@@ -65,7 +64,7 @@ sdk.dir=C\:\\Users\\<自己的用户名>\\AppData\\Local\\Android\\Sdk
 
 ### 注意事项
 
-1. 由于安卓系统限制,在安卓10及以上的系统应用无法在后台读取剪贴板,但可以使用基于Root权限的工具(Magisk/Xposed)解除应用后台读取剪贴版的权限,如[Riru-ClipboardWhitelist](https://github.com/Kr328/Riru-ClipboardWhitelist) / [Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)。由于在安卓13及以上的系统应用必须由用户手动授权才被允许访问系统日志(剪贴板),也可以使用Xposed自动为应用授权访问系统日志的权限,如[DisableLogRequest/禁用日志访问请求](https://github.com/QueallyTech/DisableLogRequest) ,推荐搭配[Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)使用
+1. 由于安卓系统限制,在安卓10及以上的系统应用无法在后台读取剪贴板,但可以使用基于Root权限的工具(Magisk/Xposed)解除应用后台读取剪贴版的权限,如[Riru-ClipboardWhitelist](https://github.com/Kr328/Riru-ClipboardWhitelist) / [Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)。由于在安卓13及以上的系统应用必须由用户手动授权才被允许访问系统日志(剪贴板),也可以使用Xposed自动为应用授权访问系统日志的权限,如[DisableLogRequest/禁用日志访问请求](https://github.com/QueallyTech/DisableLogRequest) ,项目推荐搭配[Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)使用
 
 ### 项目结构
 
