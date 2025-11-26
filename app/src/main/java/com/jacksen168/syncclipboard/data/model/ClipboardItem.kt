@@ -3,6 +3,7 @@ package com.jacksen168.syncclipboard.data.model
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
+import com.jacksen168.syncclipboard.util.ContentLimiter
 import java.security.MessageDigest
 import java.util.Date
 
@@ -51,7 +52,14 @@ data class ClipboardItem(
     val lastModified: Long = timestamp,
     
     // 新增字段：是否正在同步中
-    val isSyncing: Boolean = false
+    val isSyncing: Boolean = false,
+    
+    // 新增字段：用于UI显示的裁剪内容（避免UI渲染性能问题）
+    val uiContent: String = if (type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForUI(content)) {
+        ContentLimiter.truncateForUI(content)
+    } else {
+        content
+    }
 ) {
     companion object {
         /**

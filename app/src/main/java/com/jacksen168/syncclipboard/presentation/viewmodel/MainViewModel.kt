@@ -13,6 +13,7 @@ import com.jacksen168.syncclipboard.data.model.*
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.service.ClipboardSyncService
+import com.jacksen168.syncclipboard.util.ContentLimiter
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -310,20 +311,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun copyToClipboard(item: ClipboardItem) {
         try {
-            Log.d("MainViewModel", "用户复制剪贴板项目到系统剪贴板: id=${item.id}, type=${item.type}, content=${item.content.take(50)}...")
+            // 检查内容大小，如果太大则裁剪
+            var processedItem = item
+            if (item.type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForClipboard(item.content)) {
+                Log.w("MainViewModel", "检测到过大的文本内容，正在进行裁剪: ${item.content.length} 字符")
+                val truncatedContent = ContentLimiter.truncateForClipboard(item.content)
+                processedItem = item.copy(content = truncatedContent)
+                Log.d("MainViewModel", "裁剪后内容大小: ${processedItem.content.length} 字符")
+            }
+            
+            Log.d("MainViewModel", "用户复制剪贴板项目到系统剪贴板: id=${processedItem.id}, type=${processedItem.type}, content=${processedItem.content.take(50)}...")
             
             val context = getApplication<Application>().applicationContext
             val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             
-            when (item.type) {
+            when (processedItem.type) {
                 ClipboardType.TEXT -> {
-                    val clip = android.content.ClipData.newPlainText("SyncClipboard", item.content)
+                    val clip = android.content.ClipData.newPlainText("SyncClipboard", processedItem.content)
                     clipboardManager.setPrimaryClip(clip)
-                    Log.d("MainViewModel", "文本内容已复制到剪贴板: id=${item.id}")
+                    Log.d("MainViewModel", "文本内容已复制到剪贴板: id=${processedItem.id}")
                 }
                 ClipboardType.IMAGE -> {
                     // 对于图片，如果有本地路径，尝试复制图片
-                    item.localPath?.let { path ->
+                    processedItem.localPath?.let { path ->
                         val file = java.io.File(path)
                         if (file.exists()) {
                             try {
@@ -334,31 +344,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 )
                                 val clip = android.content.ClipData.newUri(context.contentResolver, "SyncClipboard Image", uri)
                                 clipboardManager.setPrimaryClip(clip)
-                                Log.d("MainViewModel", "图片内容已复制到剪贴板: id=${item.id}, path=$path")
+                                Log.d("MainViewModel", "图片内容已复制到剪贴板: id=${processedItem.id}, path=$path")
                             } catch (e: Exception) {
                                 // 如果图片复制失败，降级为文本复制
-                                val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${item.fileName ?: "未知文件"}")
+                                val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${processedItem.fileName ?: "未知文件"}")
                                 clipboardManager.setPrimaryClip(clip)
-                                Log.w("MainViewModel", "图片复制失败，降级为文本复制: id=${item.id}", e)
+                                Log.w("MainViewModel", "图片复制失败，降级为文本复制: id=${processedItem.id}", e)
                             }
                         } else {
                             // 文件不存在，复制文件名
-                            val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${item.fileName ?: "未知文件"}")
+                            val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${processedItem.fileName ?: "未知文件"}")
                             clipboardManager.setPrimaryClip(clip)
-                            Log.w("MainViewModel", "图片文件不存在，复制文件名: id=${item.id}, path=$path")
+                            Log.w("MainViewModel", "图片文件不存在，复制文件名: id=${processedItem.id}, path=$path")
                         }
                     } ?: run {
                         // 没有本地路径，复制文件名或内容
-                        val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${item.fileName ?: item.content}")
+                        val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${processedItem.fileName ?: processedItem.content}")
                         clipboardManager.setPrimaryClip(clip)
-                        Log.d("MainViewModel", "复制图片文件名或内容: id=${item.id}")
+                        Log.d("MainViewModel", "复制图片文件名或内容: id=${processedItem.id}")
                     }
                 }
                 ClipboardType.FILE -> {
                     // 文件类型，复制文件名
-                    val clip = android.content.ClipData.newPlainText("SyncClipboard", "文件: ${item.fileName ?: item.content}")
+                    val clip = android.content.ClipData.newPlainText("SyncClipboard", "文件: ${processedItem.fileName ?: processedItem.content}")
                     clipboardManager.setPrimaryClip(clip)
-                    Log.d("MainViewModel", "文件名已复制到剪贴板: id=${item.id}, fileName=${item.fileName}")
+                    Log.d("MainViewModel", "文件名已复制到剪贴板: id=${processedItem.id}, fileName=${processedItem.fileName}")
                 }
             }
             
@@ -379,7 +389,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteClipboardItem(item: ClipboardItem) {
         viewModelScope.launch {
             try {
-                Log.d("MainViewModel", "用户删除剪贴板项目: id=${item.id}, type=${item.type}, content=${item.content.take(50)}...")
+                Log.d("MainViewModel", "用户删除剪贴板项目: id=${item.id}, type=${item.type}, content=${item.uiContent.take(50)}...")
                 val result = clipboardRepository.deleteItem(item)
                 result.onSuccess {
                     // 删除成功后刷新列表，去重逻辑在getRecentItems中处理

@@ -8,6 +8,7 @@ import android.util.Log
 import com.jacksen168.syncclipboard.data.model.ClipboardItem
 import com.jacksen168.syncclipboard.data.model.ClipboardType
 import com.jacksen168.syncclipboard.data.model.ClipboardSource
+import com.jacksen168.syncclipboard.util.ContentLimiter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -94,7 +95,15 @@ class ClipboardManager(private val context: Context) {
             val clipboardItem = when {
                 // 文本内容
                 item.text != null -> {
-                    val content = item.text.toString()
+                    var content = item.text.toString()
+                    
+                    // 检查内容大小，如果太大则裁剪
+                    if (ContentLimiter.isContentTooLargeForDatabase(content)) {
+                        Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                        content = ContentLimiter.truncateForDatabase(content)
+                        Log.d(TAG, "裁剪后内容大小: ${content.length} 字符")
+                    }
+                    
                     val contentHash = content.hashCode().toString()
                     
                     // 检查是否是刚刚设置的内容（防循环）
@@ -271,13 +280,21 @@ class ClipboardManager(private val context: Context) {
      */
     fun setClipboardText(text: String, label: String = "SyncClipboard") {
         try {
+            // 检查内容大小，如果太大则裁剪
+            var processedText = text
+            if (ContentLimiter.isContentTooLargeForClipboard(text)) {
+                Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${text.length} 字符")
+                processedText = ContentLimiter.truncateForClipboard(text)
+                Log.d(TAG, "裁剪后内容大小: ${processedText.length} 字符")
+            }
+            
             // 记录即将设置的内容哈希，避免循环检测
-            val contentHash = text.hashCode().toString()
+            val contentHash = processedText.hashCode().toString()
             markRecentlySetContent(contentHash)
             
-            val clip = ClipData.newPlainText(label, text)
+            val clip = ClipData.newPlainText(label, processedText)
             clipboardManager.setPrimaryClip(clip)
-            Log.d(TAG, "设置文本到剪贴板: ${text.take(50)}...")
+            Log.d(TAG, "设置文本到剪贴板: ${processedText.take(50)}...")
         } catch (e: Exception) {
             Log.e(TAG, "设置文本到剪贴板时出错", e)
         }
@@ -308,7 +325,15 @@ class ClipboardManager(private val context: Context) {
             val clip = clipboardManager.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 val item = clip.getItemAt(0)
-                item.text?.toString()
+                val content = item.text?.toString()
+                
+                // 检查内容大小，如果太大则裁剪
+                if (content != null && ContentLimiter.isContentTooLargeForClipboard(content)) {
+                    Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                    return ContentLimiter.truncateForClipboard(content)
+                }
+                
+                content
             } else {
                 null
             }
@@ -327,16 +352,27 @@ class ClipboardManager(private val context: Context) {
             if (clip != null && clip.itemCount > 0) {
                 val item = clip.getItemAt(0)
                 when {
-                    item.text != null -> ClipboardItem(
-                        id = UUID.randomUUID().toString(),
-                        content = item.text.toString(),
-                        type = ClipboardType.TEXT,
-                        timestamp = System.currentTimeMillis(),
-                        deviceName = getDeviceName(),
-                        source = ClipboardSource.LOCAL,
-                        contentHash = ClipboardItem.generateContentHash(item.text.toString(), ClipboardType.TEXT, null),
-                        lastModified = System.currentTimeMillis()
-                    )
+                    item.text != null -> {
+                        var content = item.text.toString()
+                        
+                        // 检查内容大小，如果太大则裁剪
+                        if (ContentLimiter.isContentTooLargeForDatabase(content)) {
+                            Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                            content = ContentLimiter.truncateForDatabase(content)
+                            Log.d(TAG, "裁剪后内容大小: ${content.length} 字符")
+                        }
+                        
+                        ClipboardItem(
+                            id = UUID.randomUUID().toString(),
+                            content = content,
+                            type = ClipboardType.TEXT,
+                            timestamp = System.currentTimeMillis(),
+                            deviceName = getDeviceName(),
+                            source = ClipboardSource.LOCAL,
+                            contentHash = ClipboardItem.generateContentHash(content, ClipboardType.TEXT, null),
+                            lastModified = System.currentTimeMillis()
+                        )
+                    }
                     item.uri != null -> handleImageUri(item.uri)
                     else -> null
                 }
