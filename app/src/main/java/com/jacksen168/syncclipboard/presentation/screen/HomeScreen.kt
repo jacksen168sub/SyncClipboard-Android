@@ -87,7 +87,7 @@ fun HomeScreen(
                 actions = {
                     // 状态文字提示
                     Text(
-                        text = if (uiState.isConnected) "运行中" else "未运行",
+                        text = if (uiState.isConnected) stringResource(R.string.status_running) else stringResource(R.string.status_not_running),
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (uiState.isConnected) 
                             MaterialTheme.colorScheme.primary 
@@ -103,7 +103,7 @@ fun HomeScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Upload,
-                            contentDescription = "手动同步到服务器",
+                            contentDescription = stringResource(R.string.manual_sync_to_server),
                             tint = if (uiState.isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -114,7 +114,7 @@ fun HomeScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "刷新列表"
+                            contentDescription = stringResource(R.string.refresh_list)
                         )
                     }
                 }
@@ -133,7 +133,7 @@ fun HomeScreen(
             ) {
                 Icon(
                     imageVector = if (uiState.isConnected) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (uiState.isConnected) "停止同步" else "开始同步"
+                    contentDescription = if (uiState.isConnected) stringResource(R.string.stop_sync) else stringResource(R.string.start_sync)
                 )
             }
         }

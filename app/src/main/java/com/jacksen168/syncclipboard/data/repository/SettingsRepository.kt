@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.data.model.ServerConfig
 import kotlinx.coroutines.flow.Flow
@@ -177,6 +178,19 @@ class SettingsRepository(private val context: Context) {
             String(decrypted)
         } catch (e: Exception) {
             encryptedPassword // 如果解密失败，返回原文
+        }
+    }
+
+    /**
+     * 重置数据库
+     */
+    suspend fun resetDatabase(context: Context) {
+        try {
+            // 删除数据库文件
+            context.deleteDatabase("clipboard_database")
+            Log.d("SettingsRepository", context.getString(R.string.database_reset_log))
+        } catch (e: Exception) {
+            Log.e("SettingsRepository", context.getString(R.string.database_reset_error_log), e)
         }
     }
 }
