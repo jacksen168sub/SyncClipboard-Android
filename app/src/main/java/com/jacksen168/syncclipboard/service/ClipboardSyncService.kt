@@ -20,6 +20,7 @@ import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.presentation.MainActivity
+import com.jacksen168.syncclipboard.util.ContentLimiter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
@@ -294,7 +295,7 @@ class ClipboardSyncService : Service() {
                     if (shouldUpdate) {
                         // 只有当内容不同时才更新剪贴板
                         updateClipboardFromServer(item)
-                        showSyncNotification("已从服务器同步: ${item.content.take(20)}...")
+                        showSyncNotification("已从服务器同步: ${item.uiContent.take(20)}...")
                     } else {
                         Log.d(TAG, "服务器内容与当前剪贴板相同，跳过更新")
                     }
@@ -435,7 +436,7 @@ class ClipboardSyncService : Service() {
             when (item.type) {
                 ClipboardType.TEXT -> {
                     clipboardManager.setClipboardText(item.content)
-                    Log.d(TAG, "已将文本内容写入剪贴板: ${item.content.take(20)}...")
+                    Log.d(TAG, "已将文本内容写入剪贴板: ${item.uiContent.take(20)}...")
                 }
                 ClipboardType.IMAGE -> {
                     // 图片类型：如果有本地路径，则设置图片到剪贴板
@@ -811,7 +812,7 @@ class ClipboardSyncService : Service() {
                     Log.d(TAG, "解锁后处理缓存的剪贴板内容")
                     writeToClipboard(item)
                     pendingClipboardItem = null // 清空缓存
-                    showSyncNotification("解锁后已自动写入: ${item.content.take(20)}...")
+                    showSyncNotification("解锁后已自动写入: ${item.uiContent.take(20)}...")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "处理解锁后逻辑时出错", e)

@@ -7,6 +7,7 @@ import com.jacksen168.syncclipboard.data.api.ApiClient
 import com.jacksen168.syncclipboard.data.api.SyncClipboardApi
 import com.jacksen168.syncclipboard.data.database.ClipboardDatabase
 import com.jacksen168.syncclipboard.data.model.*
+import com.jacksen168.syncclipboard.util.ContentLimiter
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -194,8 +195,16 @@ class ClipboardRepository(
         localPath: String? = null,
         source: ClipboardSource = ClipboardSource.LOCAL
     ): ClipboardItem = withContext(Dispatchers.IO) {
+        // 检查内容大小，如果太大则裁剪
+        var processedContent = content
+        if (type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForDatabase(content)) {
+            Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+            processedContent = ContentLimiter.truncateForDatabase(content)
+            Log.d(TAG, "裁剪后内容大小: ${processedContent.length} 字符")
+        }
+        
         val settings = settingsRepository.appSettingsFlow.first()
-        val contentHash = ClipboardItem.generateContentHash(content, type, fileName)
+        val contentHash = ClipboardItem.generateContentHash(processedContent, type, fileName)
         val currentTime = System.currentTimeMillis()
 
         // 检查是否已存在相同内容哈希的项目
@@ -226,7 +235,7 @@ class ClipboardRepository(
             // 创建新项目
             val newItem = ClipboardItem(
                 id = UUID.randomUUID().toString(),
-                content = content,
+                content = processedContent,
                 type = type,
                 timestamp = currentTime,
                 deviceName = if (source == ClipboardSource.LOCAL) settings.deviceName else null,
@@ -308,8 +317,16 @@ class ClipboardRepository(
                         } else {
                             body.clipboard
                         }
+                        
+                        // 检查内容大小，如果太大则裁剪
+                        var processedContent = content
+                        if (type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForDatabase(content)) {
+                            Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                            processedContent = ContentLimiter.truncateForDatabase(content)
+                            Log.d(TAG, "裁剪后内容大小: ${processedContent.length} 字符")
+                        }
 
-                        val contentHash = ClipboardItem.generateContentHash(content, type, fileName)
+                        val contentHash = ClipboardItem.generateContentHash(processedContent, type, fileName)
 
                         // 检查是否与最后同步的内容相同（防止循环）
                         if (contentHash == lastSyncedContentHash) {
@@ -333,7 +350,7 @@ class ClipboardRepository(
                             // 创建新的远程项目
                             val newItem = ClipboardItem(
                                 id = UUID.randomUUID().toString(),
-                                content = if (type == ClipboardType.IMAGE) body.clipboard else content,
+                                content = if (type == ClipboardType.IMAGE) body.clipboard else processedContent,
                                 type = type,
                                 timestamp = System.currentTimeMillis(),
                                 fileName = fileName,
@@ -341,7 +358,7 @@ class ClipboardRepository(
                                 source = ClipboardSource.REMOTE,
                                 contentHash = contentHash,
                                 lastModified = System.currentTimeMillis(),
-                                localPath = if (type == ClipboardType.IMAGE) content else null
+                                localPath = if (type == ClipboardType.IMAGE) processedContent else null
                             )
 
                             // 保存到本地数据库
@@ -373,22 +390,31 @@ class ClipboardRepository(
     suspend fun uploadToServer(item: ClipboardItem): Result<ClipboardItem> = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             try {
+                // 检查内容大小，如果太大则裁剪
+                var processedItem = item
+                if (item.type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForClipboard(item.content)) {
+                    Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${item.content.length} 字符")
+                    val truncatedContent = ContentLimiter.truncateForClipboard(item.content)
+                    processedItem = item.copy(content = truncatedContent)
+                    Log.d(TAG, "裁剪后内容大小: ${processedItem.content.length} 字符")
+                }
+                
                 // 记录详细的item信息,用于调试
                 Log.d(TAG, "=== 开始上传剪贴板内容 ===")
-                Log.d(TAG, "Item ID: ${item.id}")
-                Log.d(TAG, "Item Type: ${item.type}")
-                Log.d(TAG, "Item Content: ${item.content.take(50)}...")
-                Log.d(TAG, "Item FileName: ${item.fileName}")
-                Log.d(TAG, "Item LocalPath: ${item.localPath}")
-                Log.d(TAG, "Item FileSize: ${item.fileSize}")
-                Log.d(TAG, "Item Source: ${item.source}")
+                Log.d(TAG, "Item ID: ${processedItem.id}")
+                Log.d(TAG, "Item Type: ${processedItem.type}")
+                Log.d(TAG, "Item Content: ${processedItem.content.take(50)}...")
+                Log.d(TAG, "Item FileName: ${processedItem.fileName}")
+                Log.d(TAG, "Item LocalPath: ${processedItem.localPath}")
+                Log.d(TAG, "Item FileSize: ${processedItem.fileSize}")
+                Log.d(TAG, "Item Source: ${processedItem.source}")
 
                 val api = apiService ?: return@withContext Result.failure(
                     Exception("API服务未初始化")
                 )
 
                 // 转换为SyncClipboard格式
-                val typeString = when (item.type) {
+                val typeString = when (processedItem.type) {
                     ClipboardType.TEXT -> "Text"
                     ClipboardType.IMAGE -> "Image"
                     ClipboardType.FILE -> "File"
@@ -396,18 +422,18 @@ class ClipboardRepository(
 
                 // 对于图片类型,需要先上传文件,然后上传元数据
                 Log.d(TAG, "检查图片上传条件:")
-                Log.d(TAG, "  - item.type == ClipboardType.IMAGE: ${item.type == ClipboardType.IMAGE}")
-                Log.d(TAG, "  - item.localPath != null: ${item.localPath != null}")
-                Log.d(TAG, "  - item.fileName != null: ${item.fileName != null}")
+                Log.d(TAG, "  - item.type == ClipboardType.IMAGE: ${processedItem.type == ClipboardType.IMAGE}")
+                Log.d(TAG, "  - item.localPath != null: ${processedItem.localPath != null}")
+                Log.d(TAG, "  - item.fileName != null: ${processedItem.fileName != null}")
 
-                if (item.type == ClipboardType.IMAGE && item.localPath != null && item.fileName != null) {
-                    Log.d(TAG, "开始处理图片上传: localPath=${item.localPath}, fileName=${item.fileName}")
+                if (processedItem.type == ClipboardType.IMAGE && processedItem.localPath != null && processedItem.fileName != null) {
+                    Log.d(TAG, "开始处理图片上传: localPath=${processedItem.localPath}, fileName=${processedItem.fileName}")
 
                     // 首先计算文件哈希值
-                    val file = File(item.localPath)
+                    val file = File(processedItem.localPath)
                     if (!file.exists()) {
-                        Log.e(TAG, "图片文件不存在: ${item.localPath}")
-                        return@withContext Result.failure(Exception("图片文件不存在: ${item.localPath}"))
+                        Log.e(TAG, "图片文件不存在: ${processedItem.localPath}")
+                        return@withContext Result.failure(Exception("图片文件不存在: ${processedItem.localPath}"))
                     }
 
                     Log.d(TAG, "文件存在,开始计算哈希值: ${file.absolutePath}, 大小: ${file.length()} bytes")
@@ -430,13 +456,13 @@ class ClipboardRepository(
                             serverBody.clipboard == fileHash) {
                             Log.d(TAG, "服务端已存在相同内容的图片，跳过上传: fileHash=$fileHash")
                             // 标记为已同步
-                            val updatedItem = item.copy(
+                            val updatedItem = processedItem.copy(
                                 isSynced = true,
                                 lastModified = System.currentTimeMillis()
                             )
                             clipboardDao.updateItem(updatedItem)
                             settingsRepository.updateLastSyncTime(System.currentTimeMillis())
-                            lastSyncedContentHash = item.contentHash
+                            lastSyncedContentHash = processedItem.contentHash
                             return@withContext Result.success(updatedItem)
                         } else {
                             Log.d(TAG, "服务端不存在相同内容的图片，继续上传流程")
@@ -450,29 +476,29 @@ class ClipboardRepository(
 
                     // 上传文件到服务器
                     Log.d(TAG, "开始调用uploadImageFile方法")
-                    val uploadSuccess = uploadImageFile(item.localPath, item.fileName)
+                    val uploadSuccess = uploadImageFile(processedItem.localPath, processedItem.fileName)
                     Log.d(TAG, "uploadImageFile方法调用完成,结果: $uploadSuccess")
 
                     if (!uploadSuccess) {
                         Log.w(TAG, "图片文件上传失败,但继续尝试上传元数据")
                         // 不直接返回失败,而是继续尝试上传元数据
                     } else {
-                        Log.d(TAG, "图片文件上传成功: ${item.fileName}")
+                        Log.d(TAG, "图片文件上传成功: ${processedItem.fileName}")
                     }
 
                     // 发送元数据,使用文件哈希作为Clipboard内容
                     val request = SyncClipboardRequest(
                         type = typeString,
                         clipboard = fileHash,
-                        file = item.fileName
+                        file = processedItem.fileName
                     )
 
-                    Log.d(TAG, "上传图片元数据: file=$fileHash, filename=${item.fileName}")
+                    Log.d(TAG, "上传图片元数据: file=$fileHash, filename=${processedItem.fileName}")
 
                     val response = api.uploadClipboard(request)
                     if (response.isSuccessful) {
                         // 标记为已同步
-                        val updatedItem = item.copy(
+                        val updatedItem = processedItem.copy(
                             isSynced = true,
                             lastModified = System.currentTimeMillis()
                         )
@@ -480,7 +506,7 @@ class ClipboardRepository(
                         settingsRepository.updateLastSyncTime(System.currentTimeMillis())
 
                         // 记录最后同步的内容哈希
-                        lastSyncedContentHash = item.contentHash
+                        lastSyncedContentHash = processedItem.contentHash
 
                         Log.d(TAG, "图片元数据上传成功")
                         Result.success(updatedItem)
@@ -493,14 +519,14 @@ class ClipboardRepository(
                     Log.d(TAG, "进入非图片上传逆辑,直接上传元数据")
                     val request = SyncClipboardRequest(
                         type = typeString,
-                        clipboard = item.content,
-                        file = item.fileName ?: ""
+                        clipboard = processedItem.content,
+                        file = processedItem.fileName ?: ""
                     )
 
                     val response = api.uploadClipboard(request)
                     if (response.isSuccessful) {
                         // 标记为已同步
-                        val updatedItem = item.copy(
+                        val updatedItem = processedItem.copy(
                             isSynced = true,
                             lastModified = System.currentTimeMillis()
                         )
@@ -508,7 +534,7 @@ class ClipboardRepository(
                         settingsRepository.updateLastSyncTime(System.currentTimeMillis())
 
                         // 记录最后同步的内容哈希
-                        lastSyncedContentHash = item.contentHash
+                        lastSyncedContentHash = processedItem.contentHash
 
                         Result.success(updatedItem)
                     } else {

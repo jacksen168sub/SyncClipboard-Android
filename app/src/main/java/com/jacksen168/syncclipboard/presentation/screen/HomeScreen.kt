@@ -366,7 +366,7 @@ fun ClipboardItemCard(
             when (item.type) {
                 ClipboardType.TEXT -> {
                     Text(
-                        text = item.content,
+                        text = item.uiContent,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
@@ -375,7 +375,7 @@ fun ClipboardItemCard(
                 }
                 ClipboardType.IMAGE -> {
                     ImagePreview(
-                        imagePath = item.localPath ?: item.content,
+                        imagePath = item.localPath ?: "",
                         fileName = item.fileName,
                         modifier = Modifier.fillMaxWidth()
                     )
