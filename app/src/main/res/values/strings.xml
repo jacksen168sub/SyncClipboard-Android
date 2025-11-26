@@ -8,6 +8,12 @@
     <string name="status_disconnected">已断开</string>
     <string name="status_syncing">同步中…</string>
     <string name="last_sync_time">最后同步: %s</string>
+    <string name="status_running">运行中</string>
+    <string name="status_not_running">未运行</string>
+    <string name="manual_sync_to_server">手动同步到服务器</string>
+    <string name="refresh_list">刷新列表</string>
+    <string name="stop_sync">停止同步</string>
+    <string name="start_sync">开始同步</string>
     
     <!-- Clipboard Content -->
     <string name="clipboard_empty">剪贴板为空</string>
@@ -41,6 +47,20 @@
     <string name="sync_on_boot_desc">应用启动时自动开启剪贴板同步服务</string>
     <string name="rewrite_after_unlock">解锁屏幕后重新写入剪贴板</string>
     <string name="rewrite_after_unlock_desc">锁屏期间如内容已同步到APP但没有写入剪贴板时,解锁屏幕后自动将同步过来的内容重新写入剪贴板</string>
+    <string name="clipboard_history_count">历史显示数量</string>
+    <string name="clipboard_history_count_desc">设置剪贴板历史列表显示的数量</string>
+    <string name="download_location">文件下载位置</string>
+    <string name="download_location_empty">点击选择下载位置</string>
+    <string name="auto_save_files">文件自动保存</string>
+    <string name="auto_save_files_desc">开启后自动保存接收到的文件</string>
+    <string name="select">选择</string>
+    <string name="change">更改</string>
+    
+    <!-- Dialogs -->
+    <string name="set_sync_interval">设置同步间隔</string>
+    <string name="interval_time_seconds">间隔时间（秒）</string>
+    <string name="set_clipboard_history_count">设置历史显示数量</string>
+    <string name="display_count_items">显示数量(1-100条)</string>
     
     <!-- Other Settings -->
     <string name="other_settings">其他设置</string>
@@ -54,6 +74,33 @@
     <string name="foreground_service_keepalive">前台服务保活</string>
     <string name="foreground_service_keepalive_desc">使用前台服务机制增强应用保活能力</string>
     <string name="experimental_warning">无法确定功能能否正常运行</string>
+    
+    <!-- Miscellaneous -->
+    <string name="miscellaneous">杂项</string>
+    <string name="reset_database">重置APP数据库</string>
+    <string name="reset_database_desc">遇到问题可尝试重置数据库,清除APP所有剪贴板历史记录</string>
+    <string name="reset_button">重置</string>
+    <string name="confirm_reset_title">确认重置数据库</string>
+    <string name="confirm_reset_message">此操作将清除所有剪贴板历史记录,且无法恢复。是否继续?</string>
+    <string name="confirm_reset_action">确认重置</string>
+    <string name="database_reset_success">数据库已重置，应用即将重启</string>
+    <string name="database_reset_failed">重置数据库失败: %s</string>
+    <string name="database_reset_log">数据库已重置</string>
+    <string name="database_reset_error_log">重置数据库时出错</string>
+    
+    <!-- About -->
+    <string name="about">关于</string>
+    <string name="version_info">版本 %1$s (%2$s)</string>
+    <string name="check_for_updates">检查更新</string>
+    <string name="github_project">GitHub项目</string>
+    <string name="server_side">服务端</string>
+    <string name="open_link">打开链接</string>
+    <string name="important_notice">重要说明</string>
+    <string name="system_limitations_desc">由于安卓系统限制,在安卓10及以上的系统应用无法在后台读取剪贴板,但可以使用基于Root权限的工具(Magisk/Xposed)解除应用后台读取剪贴版的权限,如Riru-ClipboardWhitelist或Clipboard Whitelist</string>
+    
+    <!-- Navigation -->
+    <string name="home">首页</string>
+    <string name="navigation_settings">设置</string>
     
     <!-- Notification -->
     <string name="notification_channel_name">剪贴板同步</string>

@@ -118,6 +118,11 @@ fun SettingsScreen(
             )
         }
         
+        // 杂项
+        item {
+            MiscellaneousCard(viewModel = viewModel)
+        }
+        
         // 关于信息
         item {
             AboutCard()
@@ -459,8 +464,8 @@ fun SyncSettingsCard(
             
             // 剪贴板历史显示数量
             SettingItem(
-                title = "历史显示数量",
-                description = "设置剪贴板历史列表显示的数量",
+                title = stringResource(R.string.clipboard_history_count),
+                description = stringResource(R.string.clipboard_history_count_desc),
                 icon = Icons.Default.List,
                 trailing = {
                     TextButton(
@@ -476,8 +481,8 @@ fun SyncSettingsCard(
             
             // 文件下载位置
             SettingItem(
-                title = "文件下载位置",
-                description = if (appSettings.downloadLocation.isEmpty()) "点击选择下载位置" else getReadablePathFromUri(appSettings.downloadLocation),
+                title = stringResource(R.string.download_location),
+                description = if (appSettings.downloadLocation.isEmpty()) stringResource(R.string.download_location_empty) else getReadablePathFromUri(appSettings.downloadLocation),
                 icon = Icons.Default.Folder,
                 trailing = {
                     TextButton(
@@ -486,15 +491,15 @@ fun SyncSettingsCard(
                             onRequestDownloadLocationSelection()
                         }
                     ) {
-                        Text(if (appSettings.downloadLocation.isEmpty()) "选择" else "更改")
+                        Text(if (appSettings.downloadLocation.isEmpty()) stringResource(R.string.select) else stringResource(R.string.change))
                     }
                 }
             )
             
             // 文件自动保存开关
             SettingItem(
-                title = "文件自动保存",
-                description = "开启后自动保存接收到的文件",
+                title = stringResource(R.string.auto_save_files),
+                description = stringResource(R.string.auto_save_files_desc),
                 icon = Icons.Default.Save,
                 trailing = {
                     Switch(
@@ -510,12 +515,12 @@ fun SyncSettingsCard(
     if (showIntervalDialog) {
         AlertDialog(
             onDismissRequest = { showIntervalDialog = false },
-            title = { Text("设置同步间隔") },
+            title = { Text(stringResource(R.string.set_sync_interval)) },
             text = {
                 OutlinedTextField(
                     value = tempInterval,
                     onValueChange = { tempInterval = it },
-                    label = { Text("间隔时间（秒）") },
+                    label = { Text(stringResource(R.string.interval_time_seconds)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
@@ -546,12 +551,12 @@ fun SyncSettingsCard(
     if (showHistoryCountDialog) {
         AlertDialog(
             onDismissRequest = { showHistoryCountDialog = false },
-            title = { Text("设置历史显示数量") },
+            title = { Text(stringResource(R.string.set_clipboard_history_count)) },
             text = {
                 OutlinedTextField(
                     value = tempHistoryCount,
                     onValueChange = { tempHistoryCount = it },
-                    label = { Text("显示数量(1-100条)") },
+                    label = { Text(stringResource(R.string.display_count_items)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
@@ -700,7 +705,7 @@ fun AboutCard() {
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "关于",
+                    text = stringResource(R.string.about),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Medium
                 )
@@ -709,7 +714,7 @@ fun AboutCard() {
             // 应用信息
             SettingItem(
                 title = stringResource(R.string.app_name),
-                description = "版本 $versionName ($versionCode)",
+                description = stringResource(R.string.version_info, versionName, versionCode),
                 icon = Icons.Default.Build,
                 trailing = {
                     IconButton(
@@ -724,7 +729,7 @@ fun AboutCard() {
                         } else {
                             Icon(
                                 imageVector = Icons.Default.SystemUpdate,
-                                contentDescription = "检查更新",
+                                contentDescription = stringResource(R.string.check_for_updates),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -734,7 +739,7 @@ fun AboutCard() {
             
             // GitHub链接
             SettingItem(
-                title = "GitHub项目",
+                title = stringResource(R.string.github_project),
                 description = "https://github.com/jacksen168sub/SyncClipboard-Android",
                 icon = Icons.Default.Star,
                 trailing = {
@@ -748,7 +753,7 @@ fun AboutCard() {
                     }) {
                         Icon(
                             imageVector = Icons.Default.Launch,
-                            contentDescription = "打开链接"
+                            contentDescription = stringResource(R.string.open_link)
                         )
                     }
                 }
@@ -756,7 +761,7 @@ fun AboutCard() {
             
             // 服务端项目链接
             SettingItem(
-                title = "服务端",
+                title = stringResource(R.string.server_side),
                 description = "https://github.com/Jeric-X/SyncClipboard",
                 icon = Icons.Default.Storage,
                 trailing = {
@@ -770,7 +775,7 @@ fun AboutCard() {
                     }) {
                         Icon(
                             imageVector = Icons.Default.Launch,
-                            contentDescription = "打开链接"
+                            contentDescription = stringResource(R.string.open_link)
                         )
                     }
                 }
@@ -798,14 +803,14 @@ fun AboutCard() {
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "重要说明",
+                            text = stringResource(R.string.important_notice),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
                     Text(
-                        text = "由于安卓系统限制,在安卓10及以上的系统应用无法在后台读取剪贴板,但可以使用基于Root权限的工具(Magisk/Xposed)解除应用后台读取剪贴版的权限,如Riru-ClipboardWhitelist或Clipboard Whitelist",
+                        text = stringResource(R.string.system_limitations_desc),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
@@ -956,6 +961,91 @@ fun ExperimentalFeaturesCard(
                 }
             )
         }
+    }
+}
+
+/**
+ * 杂项卡片
+ */
+@Composable
+fun MiscellaneousCard(
+    viewModel: SettingsViewModel
+) {
+    val context = LocalContext.current
+    var showResetConfirm by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 标题
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(R.string.miscellaneous),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            // 重置数据库
+            SettingItem(
+                title = stringResource(R.string.reset_database),
+                description = stringResource(R.string.reset_database_desc),
+                icon = Icons.Default.Restore,
+                trailing = {
+                    Button(
+                        onClick = { showResetConfirm = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text(stringResource(R.string.reset_button))
+                    }
+                }
+            )
+        }
+    }
+    
+    // 重置确认对话框
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text(stringResource(R.string.confirm_reset_title)) },
+            text = { Text(stringResource(R.string.confirm_reset_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetDatabase()
+                        showResetConfirm = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(R.string.confirm_reset_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 

@@ -20,9 +20,9 @@ import com.jacksen168.syncclipboard.presentation.screen.SettingsScreen
 /**
  * 导航路由
  */
-sealed class Screen(val route: String, val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    object Home : Screen("home", "首页", Icons.Filled.Home)
-    object Settings : Screen("settings", "设置", Icons.Filled.Settings)
+sealed class Screen(val route: String, val titleResId: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    object Home : Screen("home", R.string.home, Icons.Filled.Home)
+    object Settings : Screen("settings", R.string.navigation_settings, Icons.Filled.Settings)
 }
 
 /**
@@ -51,10 +51,10 @@ fun SyncClipboardNavigation(
                         icon = { 
                             Icon(
                                 imageVector = screen.icon,
-                                contentDescription = screen.title
+                                contentDescription = stringResource(screen.titleResId)
                             )
                         },
-                        label = { Text(screen.title) },
+                        label = { Text(stringResource(screen.titleResId)) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
                             navController.navigate(screen.route) {

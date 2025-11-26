@@ -3,6 +3,7 @@ package com.jacksen168.syncclipboard.presentation.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.SyncClipboardApplication
 import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.data.model.ServerConfig
@@ -448,6 +449,45 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun clearFileSelectionRequest() {
         _requestFileSelection.value = false
+    }
+
+    /**
+     * 重置数据库
+     */
+    fun resetDatabase() {
+        viewModelScope.launch {
+            try {
+                settingsRepository.resetDatabase(getApplication())
+                _uiState.value = _uiState.value.copy(
+                    successMessage = getApplication<Application>().getString(R.string.database_reset_success)
+                )
+                
+                // 延迟一段时间后重启应用
+                kotlinx.coroutines.delay(1000)
+                restartApp()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = getApplication<Application>().getString(R.string.database_reset_failed, e.message)
+                )
+            }
+        }
+    }
+    
+    /**
+     * 重启应用
+     */
+    private fun restartApp() {
+        val context = getApplication<Application>()
+        val packageManager = context.packageManager
+        val intent = packageManager.getLaunchIntentForPackage(context.packageName)
+        intent?.let {
+            it.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(it)
+        }
+        
+        // 结束当前进程
+        android.os.Process.killProcess(android.os.Process.myPid())
     }
 }
 
