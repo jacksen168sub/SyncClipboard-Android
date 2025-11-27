@@ -4,10 +4,10 @@
 
 使用[SyncClipboard](https://github.com/Jeric-X/SyncClipboard/) 作为服务端
 
-<img src="https://github.com/user-attachments/assets/80ef734b-5df7-4751-aa8a-a8428d3b4027" width="240px">
-<img src="https://github.com/user-attachments/assets/f271519b-9cde-4887-9efc-c4abd7d39619" width="240px">
-<img src="https://github.com/user-attachments/assets/572aeb8e-14db-42d1-8d85-60cc04ac756d" width="240px">
-<img src="https://github.com/user-attachments/assets/ab332cec-89a4-4628-a82e-46680eaf7b6f" width="240px">
+<img src="https://github.com/user-attachments/assets/80ef734b-5df7-4751-aa8a-a8428d3b4027" width="185px">
+<img src="https://github.com/user-attachments/assets/f271519b-9cde-4887-9efc-c4abd7d39619" width="185px">
+<img src="https://github.com/user-attachments/assets/572aeb8e-14db-42d1-8d85-60cc04ac756d" width="185px">
+<img src="https://github.com/user-attachments/assets/ab332cec-89a4-4628-a82e-46680eaf7b6f" width="185px">
 
 
 ## ✨ 主要功能
