@@ -1,11 +1,14 @@
 # 📋 SyncClipboard Android
 
-> 基于SyncClipboard api开发的安卓版本,使用AI coding娱乐的副产物
+> 基于SyncClipboard api开发的安卓客户端,使用AI coding娱乐的副产物,不过还是有在维护的,自己有在使用
 
 使用[SyncClipboard](https://github.com/Jeric-X/SyncClipboard/) 作为服务端
 
 <img src="https://github.com/user-attachments/assets/80ef734b-5df7-4751-aa8a-a8428d3b4027" width="240px">
-<img src="https://github.com/user-attachments/assets/696f060b-2559-4b76-977e-ff5d5ef9c4ab" width="240px">
+<img src="https://github.com/user-attachments/assets/f271519b-9cde-4887-9efc-c4abd7d39619" width="240px">
+<img src="https://github.com/user-attachments/assets/572aeb8e-14db-42d1-8d85-60cc04ac756d" width="240px">
+<img src="https://github.com/user-attachments/assets/ab332cec-89a4-4628-a82e-46680eaf7b6f" width="240px">
+
 
 ## ✨ 主要功能
 
@@ -58,8 +61,13 @@ cd SyncClipboard-Android
 # 根目录创建 local.properties 输入SDK路径
 sdk.dir=C\:\\Users\\<自己的用户名>\\AppData\\Local\\Android\\Sdk
 
-# 用Android Studio打开，或者命令行编译
+# 用Android Studio打开build，或者命令行(终端)编译:
+
+# 构建 Debug 版本:
 ./gradlew assembleDebug
+
+# 构建 Release版本:
+./gradlew assembleRelease
 ```
 
 ### 注意事项
@@ -82,6 +90,11 @@ app/src/main/java/com/jacksen168/syncclipboard/
 - Android Studio最新版
 - JDK 11+
 - 一颗想让同步更方便的心❤️
+
+## 🤝 协助开发:
+
+- 欢迎提issue报告问题/许下愿望
+- 欢迎提PR协助修复问题/实现新功能
 
 ## 📜 开源协议
 
