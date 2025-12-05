@@ -383,6 +383,9 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // 在 Activity 恢复时重新应用隐藏设置
         reapplyHideInRecentsIfNeeded()
+        
+        // 当从后台返回前台时，通知服务检查剪贴板内容
+        notifyServiceAppForeground()
     }
     
     override fun onPause() {
@@ -476,5 +479,14 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             uri.toString()
         }
+    }
+    
+    /**
+     * 通知服务应用已从后台返回前台
+     */
+    private fun notifyServiceAppForeground() {
+        // 发送广播通知ClipboardSyncService应用已从后台返回前台
+        val intent = Intent("com.jacksen168.syncclipboard.APP_FOREGROUND")
+        sendBroadcast(intent)
     }
 }
