@@ -1,4 +1,4 @@
-name: PR 检查
+name: PR提交检查:APK编译检查
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         
-    - name: 为 gradlew 添加执行权限
+    - name: 为 gradlew.sh 添加执行权限
       run: chmod +x gradlew.sh
       
     - name: 为生成密钥脚本添加执行权限
@@ -28,8 +28,17 @@ jobs:
     - name: 构建调试版本 APK
       run: ./gradlew.sh assembleDebug
       
+    - name: 构建发布版本 APK
+      run: ./gradlew.sh assembleRelease
+      
     - name: 上传调试版本 APK
       uses: actions/upload-artifact@v4
       with:
         name: debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
+      
+    - name: 上传发布版本 APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-apk
+        path: app/build/outputs/apk/release/app-release.apk
