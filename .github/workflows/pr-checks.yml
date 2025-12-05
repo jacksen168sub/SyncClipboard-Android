@@ -17,7 +17,7 @@ jobs:
         distribution: 'temurin'
         
     - name: 为 gradlew 添加执行权限
-      run: chmod +x gradlew
+      run: chmod +x gradlew.sh
       
     - name: 为生成密钥脚本添加执行权限
       run: chmod +x generate-keystore.sh
