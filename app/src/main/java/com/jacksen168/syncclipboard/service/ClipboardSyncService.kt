@@ -49,6 +49,9 @@ class ClipboardSyncService : Service() {
     private var pendingClipboardItem: ClipboardItem? = null
     private var screenStateReceiver: BroadcastReceiver? = null
     
+    // 应用前后台状态接收器
+    private var appLifecycleReceiver: BroadcastReceiver? = null
+
     companion object {
         private const val TAG = "ClipboardSyncService"
         private const val NOTIFICATION_ID = 1001
@@ -114,6 +117,9 @@ class ClipboardSyncService : Service() {
         // 注册屏幕状态监听
         registerScreenStateReceiver()
         
+        // 注册应用生命周期监听
+        registerAppLifecycleReceiver()
+        
         // 监听剪贴板变化
         startClipboardMonitoring()
         
@@ -175,6 +181,9 @@ class ClipboardSyncService : Service() {
         
         // 注销屏幕状态监听
         unregisterScreenStateReceiver()
+        
+        // 注销应用生命周期监听
+        unregisterAppLifecycleReceiver()
         
         // 取消所有协程
         serviceScope.cancel()
@@ -819,4 +828,127 @@ class ClipboardSyncService : Service() {
             }
         }
     }
+    
+    /**
+     * 注册应用生命周期监听
+     */
+    private fun registerAppLifecycleReceiver() {
+        try {
+            appLifecycleReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    when (intent.action) {
+                        "com.jacksen168.syncclipboard.APP_FOREGROUND" -> {
+                            Log.d(TAG, "接收到应用前台激活广播")
+                            handleAppForeground()
+                        }
+                    }
+                }
+            }
+            
+            val filter = IntentFilter().apply {
+                addAction("com.jacksen168.syncclipboard.APP_FOREGROUND")
+            }
+            
+            registerReceiver(appLifecycleReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            Log.d(TAG, "应用生命周期监听已注册")
+        } catch (e: Exception) {
+            Log.e(TAG, "注册应用生命周期监听失败", e)
+        }
+    }
+    
+    /**
+     * 注销应用生命周期监听
+     */
+    private fun unregisterAppLifecycleReceiver() {
+        try {
+            appLifecycleReceiver?.let {
+                unregisterReceiver(it)
+                appLifecycleReceiver = null
+                Log.d(TAG, "应用生命周期监听已注销")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "注销应用生命周期监听失败", e)
+        }
+    }
+    
+    /**
+     * 处理应用从后台返回前台的情况
+     */
+    private fun handleAppForeground() {
+        serviceScope.launch {
+            try {
+                Log.d(TAG, "应用从后台返回前台，检查剪贴板内容")
+                
+                // 检查是否有剪贴板访问权限
+                if (!clipboardManager.hasClipboardAccess()) {
+                    Log.w(TAG, "无剪贴板访问权限")
+                    return@launch
+                }
+                
+                // 检查是否启用了自动同步
+                val appSettings = settingsRepository.appSettingsFlow.first()
+                if (!appSettings.autoSync) {
+                    Log.d(TAG, "自动同步已禁用，跳过剪贴板检查")
+                    return@launch
+                }
+                
+                // 添加一个更长的延迟，确保应用完全进入前台并且剪贴板内容已准备好
+                delay(500)
+                
+                // 尝试多次读取剪贴板内容，以防第一次读取失败
+                var currentClipboardItem: ClipboardItem? = null
+                for (i in 1..3) {
+                    currentClipboardItem = clipboardManager.getCurrentClipboardContent()
+                    if (currentClipboardItem != null) {
+                        Log.d(TAG, "第${i}次尝试读取剪贴板内容成功")
+                        break
+                    } else {
+                        Log.d(TAG, "第${i}次尝试读取剪贴板内容为空，等待后重试")
+                        delay(200) // 等待200ms后重试
+                    }
+                }
+                
+                if (currentClipboardItem != null) {
+                    Log.d(TAG, "检测到前台返回时的剪贴板内容: ${currentClipboardItem.type}, ${currentClipboardItem.content.take(50)}...")
+                    
+                    // 生成当前剪贴板内容的哈希值
+                    val currentContentHash = ClipboardItem.generateContentHash(
+                        currentClipboardItem.content, 
+                        currentClipboardItem.type, 
+                        currentClipboardItem.fileName
+                    )
+                    
+                    // 检查当前剪贴板内容是否与最近保存的本地内容相同
+                    val recentItems = clipboardRepository.getLocalClipboardItems().first()
+                    val isDuplicate = recentItems.any { item ->
+                        item.source == ClipboardSource.LOCAL && 
+                        item.contentHash == currentContentHash
+                    }
+                    
+                    if (isDuplicate) {
+                        Log.d(TAG, "剪贴板内容与最近保存的本地内容相同，跳过重复处理")
+                        return@launch
+                    }
+                    
+                    // 保存到本地数据库（明确标记为本地来源）
+                    val savedItem = clipboardRepository.saveClipboardItem(
+                        content = currentClipboardItem.content,
+                        type = currentClipboardItem.type,
+                        fileName = currentClipboardItem.fileName,
+                        mimeType = currentClipboardItem.mimeType,
+                        localPath = currentClipboardItem.localPath,
+                        source = ClipboardSource.LOCAL // 明确标记为本地来源
+                    )
+                    
+                    // 触发同步
+                    syncToServer(savedItem)
+                } else {
+                    Log.d(TAG, "剪贴板为空")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "处理应用前台激活时出错", e)
+            }
+        }
+    }
+
 }
