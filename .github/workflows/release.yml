@@ -63,6 +63,7 @@ jobs:
         path: app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk
         
     - name: 创建 Release
+      id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
