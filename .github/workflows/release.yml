@@ -1,0 +1,96 @@
+name: 发布APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: 设置 JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: 为 gradlew.sh 添加执行权限
+      run: chmod +x gradlew.sh
+      
+    - name: 准备签名环境
+      run: |
+        echo "KEYSTORE_FILE_PATH=app/release-key.jks" >> $GITHUB_ENV
+      
+    - name: 构建发布版本 APK
+      run: |
+        echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > app/release-key.jks
+        ./gradlew.sh assembleCiRelease
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      
+    - name: 构建未签名版本 APK
+      run: ./gradlew.sh assembleUnsignedRelease
+      
+    - name: 设置版本信息
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        VERSION_NAME=${TAG_NAME#v}
+        echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+        echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+        
+        # 检查是否为测试版
+        if [[ $TAG_NAME == *-* ]]; then
+          echo "PRE_RELEASE=true" >> $GITHUB_ENV
+        else
+          echo "PRE_RELEASE=false" >> $GITHUB_ENV
+        fi
+        
+    - name: 上传签名版本 APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: signed-apk-${{ env.VERSION_NAME }}
+        path: app/build/outputs/apk/ciRelease/app-ciRelease.apk
+      
+    - name: 上传未签名版本 APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: unsigned-apk-${{ env.VERSION_NAME }}
+        path: app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk
+        
+    - name: 创建 Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.TAG_NAME }}
+        release_name: Release ${{ env.VERSION_NAME }}
+        draft: false
+        prerelease: ${{ env.PRE_RELEASE }}
+        
+    - name: 上传 APK 到 Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/apk/ciRelease/app-ciRelease.apk
+        asset_name: SyncClipboard-${{ env.VERSION_NAME }}.apk
+        asset_content_type: application/vnd.android.package-archive
+      
+    - name: 上传未签名 APK 到 Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk
+        asset_name: SyncClipboard-${{ env.VERSION_NAME }}-unsigned.apk
+        asset_content_type: application/vnd.android.package-archive
+      
+    - name: 清理敏感文件
+      run: rm app/release-key.jks

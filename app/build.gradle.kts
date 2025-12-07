@@ -53,6 +53,20 @@ android {
             }
         }
         
+        // GitHub Actions 构建专用签名配置
+        create("ciRelease") {
+            storeFile = file(System.getenv("KEYSTORE_FILE_PATH") ?: "app/release-key.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+            
+            // 启用所有签名版本 v1+v2+v3+v4
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+        
         // Debug签名配置（使用默认debug密钥）
         getByName("debug") {
             // 为debug也启用所有签名版本
@@ -64,7 +78,7 @@ android {
     }
 
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -73,7 +87,28 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
         }
-        debug {
+        
+        create("unsignedRelease") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = null
+        }
+        
+        create("ciRelease") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("ciRelease")
+        }
+        
+        getByName("debug") {
             isMinifyEnabled = false
             isShrinkResources = false
             applicationIdSuffix = ".debug"
