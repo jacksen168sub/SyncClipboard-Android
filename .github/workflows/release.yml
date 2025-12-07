@@ -62,36 +62,24 @@ jobs:
         name: unsigned-apk-${{ env.VERSION_NAME }}
         path: app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk
         
-    - name: 创建 Release
-      id: create_release
-      uses: actions/create-release@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
+    - name: 重命名 APK 文件
+      run: |
+        cp app/build/outputs/apk/ciRelease/app-ciRelease.apk SyncClipboard-${{ env.VERSION_NAME }}-signed.apk
+        cp app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk SyncClipboard-${{ env.VERSION_NAME }}-unsigned.apk
+      
+    - name: 创建 Release 并上传资产
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ env.TAG_NAME }}
-        release_name: ${{ env.VERSION_NAME }}
+        name: Release ${{ env.VERSION_NAME }}
         draft: false
         prerelease: ${{ env.PRE_RELEASE }}
-        
-    - name: 上传 APK 到 Release
-      uses: actions/upload-release-asset@v2
+        files: |
+          SyncClipboard-${{ env.VERSION_NAME }}-signed.apk
+          SyncClipboard-${{ env.VERSION_NAME }}-unsigned.apk
+        fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/apk/ciRelease/app-ciRelease.apk
-        asset_name: SyncClipboard-${{ env.VERSION_NAME }}-signed.apk
-        asset_content_type: application/vnd.android.package-archive
-      
-    - name: 上传未签名 APK 到 Release
-      uses: actions/upload-release-asset@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk
-        asset_name: SyncClipboard-${{ env.VERSION_NAME }}-unsigned.apk
-        asset_content_type: application/vnd.android.package-archive
       
     - name: 清理敏感文件
       run: rm app/release-key.jks
