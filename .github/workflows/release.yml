@@ -64,12 +64,12 @@ jobs:
         
     - name: 创建 Release
       id: create_release
-      uses: actions/create-release@v1
+      uses: actions/create-release@v1.1.4
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
       with:
         tag_name: ${{ env.TAG_NAME }}
-        release_name: Release ${{ env.VERSION_NAME }}
+        release_name: ${{ env.VERSION_NAME }}
         draft: false
         prerelease: ${{ env.PRE_RELEASE }}
         
@@ -80,7 +80,7 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: app/build/outputs/apk/ciRelease/app-ciRelease.apk
-        asset_name: SyncClipboard-${{ env.VERSION_NAME }}.apk
+        asset_name: SyncClipboard-${{ env.VERSION_NAME }}-signed.apk
         asset_content_type: application/vnd.android.package-archive
       
     - name: 上传未签名 APK 到 Release
