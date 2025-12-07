@@ -64,7 +64,7 @@ jobs:
         
     - name: 创建 Release
       id: create_release
-      uses: actions/create-release@v1.1.4
+      uses: actions/create-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
       with:
@@ -74,7 +74,7 @@ jobs:
         prerelease: ${{ env.PRE_RELEASE }}
         
     - name: 上传 APK 到 Release
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
       with:
@@ -84,7 +84,7 @@ jobs:
         asset_content_type: application/vnd.android.package-archive
       
     - name: 上传未签名 APK 到 Release
-      uses: actions/upload-release-asset@v1
+      uses: actions/upload-release-asset@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
       with:
