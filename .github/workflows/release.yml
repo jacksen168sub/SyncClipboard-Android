@@ -22,11 +22,11 @@ jobs:
       
     - name: 准备签名环境
       run: |
-        echo "KEYSTORE_FILE_PATH=app/release-key.jks" >> $GITHUB_ENV
+        echo "KEYSTORE_FILE_PATH=release-key.jks" >> $GITHUB_ENV
       
     - name: 构建发布版本 APK
       run: |
-        echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > app/release-key.jks
+        echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > release-key.jks
         ./gradlew.sh assembleCiRelease
       env:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}

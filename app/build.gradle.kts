@@ -55,7 +55,7 @@ android {
         
         // GitHub Actions 构建专用签名配置
         create("ciRelease") {
-            storeFile = file(System.getenv("KEYSTORE_FILE_PATH") ?: "app/release-key.jks")
+            storeFile = file(System.getenv("KEYSTORE_FILE_PATH") ?: "release-key.jks")
             storePassword = System.getenv("KEYSTORE_PASSWORD")
             keyAlias = System.getenv("KEY_ALIAS")
             keyPassword = System.getenv("KEY_PASSWORD")
