@@ -41,12 +41,34 @@ class UpdateRepository(private val context: Context) {
                 if (release != null) {
                     Log.d(TAG, "Github Release: tagName=${release.tagName}, name=${release.name}")
                     val latestVersion = release.tagName.removePrefix("v")
-                    val hasUpdate = isNewerVersion(latestVersion, currentVersion)
                     
-                    // 查找APK下载链接
-                    val downloadUrl = release.assets.find { asset ->
-                        asset.name.endsWith(".apk", ignoreCase = true)
-                    }?.downloadUrl ?: release.htmlUrl
+                    // 查找APK下载链接，确保是签名版本(-signed.apk)
+                    val signedApkAsset = release.assets.find { asset ->
+                        asset.name.endsWith("-signed.apk", ignoreCase = true)
+                    }
+                    
+                    // 记录找到的资产信息
+                    release.assets.forEach { asset ->
+                        Log.d(TAG, "找到资产: ${asset.name}, URL: ${asset.downloadUrl}")
+                    }
+                    
+                    if (signedApkAsset != null) {
+                        Log.d(TAG, "找到签名APK: ${signedApkAsset.name}")
+                    } else {
+                        Log.w(TAG, "未找到签名APK (-signed.apk)")
+                    }
+                    
+                    val downloadUrl = signedApkAsset?.downloadUrl ?: release.htmlUrl
+                    
+                    // 只有找到签名APK时才标记为有更新
+                    val hasUpdate = if (signedApkAsset != null) {
+                        val isNewer = isNewerVersion(latestVersion, currentVersion)
+                        Log.d(TAG, "版本比较结果: 最新版本=$latestVersion, 当前版本=$currentVersion, 是否更新=$isNewer")
+                        isNewer
+                    } else {
+                        Log.d(TAG, "由于未找到签名APK，不提示更新")
+                        false // 没有签名APK，不提示更新
+                    }
                     
                     // 格式化发布日期
                     val releaseDate = formatReleaseDate(release.publishedAt)
