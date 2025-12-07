@@ -50,13 +50,17 @@
 
 详细内容请查看 [BUILD.md](https://github.com/jacksen168sub/SyncClipboard-Android/blob/main/BUILD.md)
 
+<details open>
+
+<summary>Windows操作系统</summary>
+
 ```bash
 # 克隆代码
 git clone https://github.com/jacksen168sub/SyncClipboard-Android.git
 cd SyncClipboard-Android
 
 # 先创建个签名&密钥
-./generate-keystore.bat
+generate-keystore.bat
 
 # 根目录创建 local.properties 输入SDK路径
 sdk.dir=C\:\\Users\\<自己的用户名>\\AppData\\Local\\Android\\Sdk
@@ -64,11 +68,39 @@ sdk.dir=C\:\\Users\\<自己的用户名>\\AppData\\Local\\Android\\Sdk
 # 用Android Studio打开build，或者命令行(终端)编译:
 
 # 构建 Debug 版本:
-./gradlew assembleDebug
+gradlew assembleDebug
 
 # 构建 Release版本:
-./gradlew assembleRelease
+gradlew assembleRelease
 ```
+
+</details>
+
+<details>
+
+<summary>Linux操作系统</summary>
+
+```bash
+# 克隆代码
+git clone https://github.com/jacksen168sub/SyncClipboard-Android.git
+cd SyncClipboard-Android
+
+# 设置shell文件权限
+chmod +x generate-keystore.sh
+chmod +x gradlew.sh
+
+# 先创建个签名&密钥
+./generate-keystore.sh
+
+# 终端编译:
+# 构建 Debug 版本:
+./gradlew.sh assembleDebug
+
+# 构建 Release版本:
+./gradlew.sh assembleRelease
+```
+
+</details>
 
 ### 注意事项
 

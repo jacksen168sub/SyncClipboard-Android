@@ -25,8 +25,11 @@
 
 - #### 如果还没有密钥
 ```bash
-generate-keystore.bat  # 一步生成密钥和配置
+generate-keystore.bat  # 一步生成密钥和配置(Windows)
+./generate-keystore.sh   # 一步生成密钥和配置(Linux)
 ```
+
+- #### 构建完再签名可先跳过 ```1. 签名配置```
 
 ### 2. 构建命令
 
@@ -40,6 +43,25 @@ gradlew.bat assembleDebug
 
 # Release版
 gradlew.bat assembleRelease
+
+# Release不签名版
+gradlew.bat assembleUnsignedRelease
+```
+
+**Linux:**
+```bash
+# 设置shell文件权限
+chmod +x generate-keystore.sh
+chmod +x gradlew.sh
+
+# Debug 版本:
+./gradlew.sh assembleDebug
+
+# Release版本:
+./gradlew.sh assembleRelease
+
+# Release不签名版
+./gradlew.sh assembleUnsignedRelease
 ```
 
 ## 🐛 常见问题
@@ -55,6 +77,8 @@ rm -rf .gradle/  # 更彻底的清理
 **APK位置**:
 - Debug: `app/build/outputs/apk/debug/`
 - Release: `app/build/outputs/apk/release/`
+- unsignedRelease: `app/build/outputs/apk/unsignedRelease/`
+- ciRelease: `app/build/outputs/apk/ciRelease/`
 
 **直接安装**:
 ```bash
@@ -62,5 +86,7 @@ adb install app/build/outputs/apk/release/app-release.apk
 ```
 
 ---
+
+> 本人没有在Linux环境构建过,如果有错误还望指正
 
 > 📚 有问题就提Issue，看到就回复解决
