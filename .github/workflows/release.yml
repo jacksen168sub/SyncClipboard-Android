@@ -65,7 +65,7 @@ jobs:
     - name: 创建 Release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
       with:
         tag_name: ${{ env.TAG_NAME }}
         release_name: Release ${{ env.VERSION_NAME }}
@@ -75,7 +75,7 @@ jobs:
     - name: 上传 APK 到 Release
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: app/build/outputs/apk/ciRelease/app-ciRelease.apk
@@ -85,7 +85,7 @@ jobs:
     - name: 上传未签名 APK 到 Release
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUBTOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: app/build/outputs/apk/unsignedRelease/app-unsignedRelease-unsigned.apk
