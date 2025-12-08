@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jacksen168.syncclipboard.SyncClipboardApplication
@@ -14,6 +13,7 @@ import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.service.ClipboardSyncService
 import com.jacksen168.syncclipboard.util.ContentLimiter
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -314,13 +314,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // 检查内容大小，如果太大则裁剪
             var processedItem = item
             if (item.type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForClipboard(item.content)) {
-                Log.w("MainViewModel", "检测到过大的文本内容，正在进行裁剪: ${item.content.length} 字符")
+                Logger.w("MainViewModel", "检测到过大的文本内容，正在进行裁剪: ${item.content.length} 字符")
                 val truncatedContent = ContentLimiter.truncateForClipboard(item.content)
                 processedItem = item.copy(content = truncatedContent)
-                Log.d("MainViewModel", "裁剪后内容大小: ${processedItem.content.length} 字符")
+                Logger.d("MainViewModel", "裁剪后内容大小: ${processedItem.content.length} 字符")
             }
             
-            Log.d("MainViewModel", "用户复制剪贴板项目到系统剪贴板: id=${processedItem.id}, type=${processedItem.type}, content=${processedItem.content.take(50)}...")
+            Logger.d("MainViewModel", "用户复制剪贴板项目到系统剪贴板: id=${processedItem.id}, type=${processedItem.type}, content=${processedItem.content.take(50)}...")
             
             val context = getApplication<Application>().applicationContext
             val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
@@ -329,7 +329,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ClipboardType.TEXT -> {
                     val clip = android.content.ClipData.newPlainText("SyncClipboard", processedItem.content)
                     clipboardManager.setPrimaryClip(clip)
-                    Log.d("MainViewModel", "文本内容已复制到剪贴板: id=${processedItem.id}")
+                    Logger.d("MainViewModel", "文本内容已复制到剪贴板: id=${processedItem.id}")
                 }
                 ClipboardType.IMAGE -> {
                     // 对于图片，如果有本地路径，尝试复制图片
@@ -344,31 +344,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 )
                                 val clip = android.content.ClipData.newUri(context.contentResolver, "SyncClipboard Image", uri)
                                 clipboardManager.setPrimaryClip(clip)
-                                Log.d("MainViewModel", "图片内容已复制到剪贴板: id=${processedItem.id}, path=$path")
+                                Logger.d("MainViewModel", "图片内容已复制到剪贴板: id=${processedItem.id}, path=$path")
                             } catch (e: Exception) {
                                 // 如果图片复制失败，降级为文本复制
                                 val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${processedItem.fileName ?: "未知文件"}")
                                 clipboardManager.setPrimaryClip(clip)
-                                Log.w("MainViewModel", "图片复制失败，降级为文本复制: id=${processedItem.id}", e)
+                                Logger.w("MainViewModel", "图片复制失败，降级为文本复制: id=${processedItem.id}", e)
                             }
                         } else {
                             // 文件不存在，复制文件名
                             val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${processedItem.fileName ?: "未知文件"}")
                             clipboardManager.setPrimaryClip(clip)
-                            Log.w("MainViewModel", "图片文件不存在，复制文件名: id=${processedItem.id}, path=$path")
+                            Logger.w("MainViewModel", "图片文件不存在，复制文件名: id=${processedItem.id}, path=$path")
                         }
                     } ?: run {
                         // 没有本地路径，复制文件名或内容
                         val clip = android.content.ClipData.newPlainText("SyncClipboard", "图片: ${processedItem.fileName ?: processedItem.content}")
                         clipboardManager.setPrimaryClip(clip)
-                        Log.d("MainViewModel", "复制图片文件名或内容: id=${processedItem.id}")
+                        Logger.d("MainViewModel", "复制图片文件名或内容: id=${processedItem.id}")
                     }
                 }
                 ClipboardType.FILE -> {
                     // 文件类型，复制文件名
                     val clip = android.content.ClipData.newPlainText("SyncClipboard", "文件: ${processedItem.fileName ?: processedItem.content}")
                     clipboardManager.setPrimaryClip(clip)
-                    Log.d("MainViewModel", "文件名已复制到剪贴板: id=${processedItem.id}, fileName=${processedItem.fileName}")
+                    Logger.d("MainViewModel", "文件名已复制到剪贴板: id=${processedItem.id}, fileName=${processedItem.fileName}")
                 }
             }
             
@@ -379,7 +379,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(
                 error = "复制失败: ${e.message}"
             )
-            Log.e("MainViewModel", "复制到剪贴板失败: id=${item.id}", e)
+            Logger.e("MainViewModel", "复制到剪贴板失败: id=${item.id}", e)
         }
     }
     
@@ -389,7 +389,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteClipboardItem(item: ClipboardItem) {
         viewModelScope.launch {
             try {
-                Log.d("MainViewModel", "用户删除剪贴板项目: id=${item.id}, type=${item.type}, content=${item.uiContent.take(50)}...")
+                Logger.d("MainViewModel", "用户删除剪贴板项目: id=${item.id}, type=${item.type}, content=${item.uiContent.take(50)}...")
                 val result = clipboardRepository.deleteItem(item)
                 result.onSuccess {
                     // 删除成功后刷新列表，去重逻辑在getRecentItems中处理
@@ -400,18 +400,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = _uiState.value.copy(
                         lastSyncMessage = "删除成功"
                     )
-                    Log.d("MainViewModel", "剪贴板项目删除成功: id=${item.id}")
+                    Logger.d("MainViewModel", "剪贴板项目删除成功: id=${item.id}")
                 }.onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         error = "删除失败: ${e.message}"
                     )
-                    Log.e("MainViewModel", "剪贴板项目删除失败: id=${item.id}", e)
+                    Logger.e("MainViewModel", "剪贴板项目删除失败: id=${item.id}", e)
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     error = "删除出错: ${e.message}"
                 )
-                Log.e("MainViewModel", "剪贴板项目删除出错: id=${item.id}", e)
+                Logger.e("MainViewModel", "剪贴板项目删除出错: id=${item.id}", e)
             }
         }
     }
@@ -489,16 +489,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun performDataCleanup() {
         viewModelScope.launch {
             try {
-                Log.d("MainViewModel", "开始执行初始化数据清理...")
+                Logger.d("MainViewModel", "开始执行初始化数据清理...")
                 
                 // 延迟一下，让其他初始化完成
                 delay(2000)
                 
                 clipboardRepository.forceCleanupExcessData()
                 
-                Log.d("MainViewModel", "初始化数据清理完成")
+                Logger.d("MainViewModel", "初始化数据清理完成")
             } catch (e: Exception) {
-                Log.e("MainViewModel", "数据清理时出错", e)
+                Logger.e("MainViewModel", "数据清理时出错", e)
             }
         }
     }
@@ -509,18 +509,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun downloadFile(item: ClipboardItem, context: android.content.Context) {
         viewModelScope.launch {
             try {
-                Log.d("MainViewModel", "用户请求下载文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
+                Logger.d("MainViewModel", "用户请求下载文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
                 
                 // 检查是否为文件类型
                 if (item.type != ClipboardType.FILE && item.type != ClipboardType.IMAGE) {
-                    Log.w("MainViewModel", "只能下载文件类型的内容，当前类型: ${item.type}")
+                    Logger.w("MainViewModel", "只能下载文件类型的内容，当前类型: ${item.type}")
                     _uiState.value = _uiState.value.copy(error = "只能下载文件类型的内容")
                     return@launch
                 }
                 
                 // 获取应用设置
                 val settings = settingsRepository.appSettingsFlow.first()
-                Log.d("MainViewModel", "当前设置: downloadLocation=${settings.downloadLocation}, autoSaveFiles=${settings.autoSaveFiles}")
+                Logger.d("MainViewModel", "当前设置: downloadLocation=${settings.downloadLocation}, autoSaveFiles=${settings.autoSaveFiles}")
                 
                 // 检查是否有设置下载位置
                 val downloadLocation = if (settings.downloadLocation.isNotEmpty()) {
@@ -528,40 +528,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     // 使用默认下载目录
                     val defaultDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath
-                    Log.d("MainViewModel", "使用默认下载目录: $defaultDir")
+                    Logger.d("MainViewModel", "使用默认下载目录: $defaultDir")
                     defaultDir
                 }
                 
-                Log.d("MainViewModel", "下载位置: $downloadLocation")
+                Logger.d("MainViewModel", "下载位置: $downloadLocation")
                 
                 // 构造目标文件路径
                 val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
                 val targetPath = if (downloadLocation.startsWith("content://")) {
                     // 如果是URI格式，直接使用
-                    Log.d("MainViewModel", "使用URI格式下载位置: $downloadLocation")
+                    Logger.d("MainViewModel", "使用URI格式下载位置: $downloadLocation")
                     downloadLocation
                 } else {
                     // 如果是普通路径格式，构造完整路径
                     val fullPath = "$downloadLocation/$fileName"
-                    Log.d("MainViewModel", "使用文件路径下载位置: $fullPath")
+                    Logger.d("MainViewModel", "使用文件路径下载位置: $fullPath")
                     fullPath
                 }
                 
-                Log.d("MainViewModel", "目标文件路径: $targetPath")
+                Logger.d("MainViewModel", "目标文件路径: $targetPath")
                 
                 // 调用Repository下载文件
-                Log.d("MainViewModel", "调用Repository下载文件")
+                Logger.d("MainViewModel", "调用Repository下载文件")
                 val result = clipboardRepository.downloadFile(item, targetPath)
                 result.onSuccess { path ->
-                    Log.d("MainViewModel", "文件下载成功: $path")
+                    Logger.d("MainViewModel", "文件下载成功: $path")
                     _uiState.value = _uiState.value.copy(lastSyncMessage = "文件已下载到: $path")
                 }.onFailure { e ->
-                    Log.e("MainViewModel", "文件下载失败", e)
+                    Logger.e("MainViewModel", "文件下载失败", e)
                     _uiState.value = _uiState.value.copy(error = "下载失败: ${e.message}")
                 }
                 
             } catch (e: Exception) {
-                Log.e("MainViewModel", "下载文件时出错", e)
+                Logger.e("MainViewModel", "下载文件时出错", e)
                 _uiState.value = _uiState.value.copy(error = "下载失败: ${e.message}")
             }
         }

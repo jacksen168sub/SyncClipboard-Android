@@ -60,7 +60,9 @@
     <string name="set_sync_interval">设置同步间隔</string>
     <string name="interval_time_seconds">间隔时间（秒）</string>
     <string name="set_clipboard_history_count">设置历史显示数量</string>
-    <string name="display_count_items">显示数量(1-100条)</string>
+    <string name="display_clipboard_history_count">显示数量(1-100条)</string>
+    <string name="set_log_display_count">设置日志显示数量</string>
+    <string name="display_log_count">显示数量(-1为全部)</string>
     
     <!-- Other Settings -->
     <string name="other_settings">其他设置</string>
@@ -77,6 +79,8 @@
     
     <!-- Miscellaneous -->
     <string name="miscellaneous">杂项</string>
+    <string name="log_display_count">日志显示数量</string>
+    <string name="log_display_count_desc">设置日志页面显示的日志条数</string>
     <string name="reset_database">重置APP数据库</string>
     <string name="reset_database_desc">遇到问题可尝试重置数据库,清除APP所有剪贴板历史记录</string>
     <string name="reset_button">重置</string>
@@ -100,6 +104,7 @@
     
     <!-- Navigation -->
     <string name="home">首页</string>
+    <string name="logs">日志</string>
     <string name="navigation_settings">设置</string>
     
     <!-- Notification -->
@@ -156,4 +161,12 @@
     <string name="update_now">立即更新</string>
     <string name="update_later">稍后提醒</string>
     <string name="update_failed">检查更新失败</string>
+    
+    <!-- Logs -->
+    <string name="no_logs">暂无日志</string>
+    <string name="auto_refresh">自动刷新</string>
+    <string name="export_logs">导出日志</string>
+    <string name="logs_exported_success">日志已导出到: %s</string>
+    <string name="logs_export_failed">日志导出失败</string>
+    <string name="logs_export_failed_with_error">日志导出失败: %s</string>
 </resources>

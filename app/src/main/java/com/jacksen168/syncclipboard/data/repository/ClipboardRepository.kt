@@ -1,13 +1,13 @@
 package com.jacksen168.syncclipboard.data.repository
 
 import android.content.Context
-import android.util.Log
 import androidx.room.Room
 import com.jacksen168.syncclipboard.data.api.ApiClient
 import com.jacksen168.syncclipboard.data.api.SyncClipboardApi
 import com.jacksen168.syncclipboard.data.database.ClipboardDatabase
 import com.jacksen168.syncclipboard.data.model.*
 import com.jacksen168.syncclipboard.util.ContentLimiter
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,9 +70,9 @@ class ClipboardRepository(
                             password = config.password,
                             trustUnsafeSSL = config.trustUnsafeSSL
                         )
-                        Log.d("ClipboardRepository", "成功初始化API服务: ${config.url}, trustUnsafeSSL: ${config.trustUnsafeSSL}")
+                        Logger.d("ClipboardRepository", "成功初始化API服务: ${config.url}, trustUnsafeSSL: ${config.trustUnsafeSSL}")
                     } catch (e: Exception) {
-                        Log.e("ClipboardRepository", "初始化API服务失败: ${config.url}", e)
+                        Logger.e("ClipboardRepository", "初始化API服务失败: ${config.url}", e)
                         apiService = null
                         // 可以在这里通知UI显示URL错误
                     }
@@ -112,7 +112,7 @@ class ClipboardRepository(
                 deduplicatedItems.add(group.first())
             } else {
                 // 有重复,需要合并
-                Log.d(TAG, "发现重复记录，开始合并: hash=$hash, count=${group.size}")
+                Logger.d(TAG, "发现重复记录，开始合并: hash=$hash, count=${group.size}")
                 
                 val localItems = group.filter { it.source == ClipboardSource.LOCAL }
                 val remoteItems = group.filter { it.source == ClipboardSource.REMOTE }
@@ -125,10 +125,10 @@ class ClipboardRepository(
                         deduplicatedItems.add(latest)
                         // 删除其他重复项
                         group.filter { it.id != latest.id }.forEach { 
-                            Log.d(TAG, "删除重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
+                            Logger.d(TAG, "删除重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
                             clipboardDao.deleteItem(it) 
                         }
-                        Log.d(TAG, "使用已合并记录: id=${latest.id}, type=${latest.type}")
+                        Logger.d(TAG, "使用已合并记录: id=${latest.id}, type=${latest.type}")
                     }
                     // 如果同时有本地和远程项,合并为一个项
                     localItems.isNotEmpty() && remoteItems.isNotEmpty() -> {
@@ -147,12 +147,12 @@ class ClipboardRepository(
                         clipboardDao.insertItem(merged)
                         deduplicatedItems.add(merged)
                         
-                        Log.d(TAG, "合并本地和远程记录: localId=${localLatest.id}, remoteId=${remoteLatest.id}, mergedId=${merged.id}")
+                        Logger.d(TAG, "合并本地和远程记录: localId=${localLatest.id}, remoteId=${remoteLatest.id}, mergedId=${merged.id}")
 
                         // 删除原始重复项
                         group.forEach { 
                             if (it.id != merged.id) {
-                                Log.d(TAG, "删除原始重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
+                                Logger.d(TAG, "删除原始重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
                                 clipboardDao.deleteItem(it) 
                             }
                         }
@@ -163,10 +163,10 @@ class ClipboardRepository(
                         deduplicatedItems.add(latest)
                         // 删除旧的重复项
                         group.filter { it.id != latest.id }.forEach { 
-                            Log.d(TAG, "删除旧重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
+                            Logger.d(TAG, "删除旧重复记录: id=${it.id}, type=${it.type}, source=${it.source}")
                             clipboardDao.deleteItem(it) 
                         }
-                        Log.d(TAG, "保留最新记录: id=${latest.id}, type=${latest.type}, source=${latest.source}")
+                        Logger.d(TAG, "保留最新记录: id=${latest.id}, type=${latest.type}, source=${latest.source}")
                     }
                 }
             }
@@ -198,9 +198,9 @@ class ClipboardRepository(
         // 检查内容大小，如果太大则裁剪
         var processedContent = content
         if (type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForDatabase(content)) {
-            Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+            Logger.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
             processedContent = ContentLimiter.truncateForDatabase(content)
-            Log.d(TAG, "裁剪后内容大小: ${processedContent.length} 字符")
+            Logger.d(TAG, "裁剪后内容大小: ${processedContent.length} 字符")
         }
         
         val settings = settingsRepository.appSettingsFlow.first()
@@ -229,7 +229,7 @@ class ClipboardRepository(
                 localPath = localPath ?: existing.localPath
             )
             clipboardDao.updateItem(updatedItem)
-            Log.d(TAG, "合并剪贴板记录: id=${updatedItem.id}, type=${updatedItem.type}, source=${updatedItem.source}")
+            Logger.d(TAG, "合并剪贴板记录: id=${updatedItem.id}, type=${updatedItem.type}, source=${updatedItem.source}")
             updatedItem
         } else {
             // 创建新项目
@@ -248,7 +248,7 @@ class ClipboardRepository(
                 lastModified = currentTime
             )
             clipboardDao.insertItem(newItem)
-            Log.d(TAG, "添加剪贴板记录: id=${newItem.id}, type=${newItem.type}, source=${newItem.source}")
+            Logger.d(TAG, "添加剪贴板记录: id=${newItem.id}, type=${newItem.type}, source=${newItem.source}")
             newItem
         }
 
@@ -267,7 +267,7 @@ class ClipboardRepository(
         val currentCount = clipboardDao.getItemCount()
 
         if (currentCount > maxItems) {
-            Log.d(TAG, "当前记录数: $currentCount, 最大允许: $maxItems, 需要删除: ${currentCount - maxItems}")
+            Logger.d(TAG, "当前记录数: $currentCount, 最大允许: $maxItems, 需要删除: ${currentCount - maxItems}")
 
             // 获取需要删除的项目（最旧的项目）
             val excessCount = currentCount - maxItems
@@ -283,7 +283,7 @@ class ClipboardRepository(
             // 然后删除数据库记录
             clipboardDao.deleteOldestItems(excessCount)
 
-            Log.d(TAG, "已清理 $excessCount 条超出限制的记录及其缓存文件")
+            Logger.d(TAG, "已清理 $excessCount 条超出限制的记录及其缓存文件")
         }
     }
 
@@ -321,9 +321,9 @@ class ClipboardRepository(
                         // 检查内容大小，如果太大则裁剪
                         var processedContent = content
                         if (type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForDatabase(content)) {
-                            Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                            Logger.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
                             processedContent = ContentLimiter.truncateForDatabase(content)
-                            Log.d(TAG, "裁剪后内容大小: ${processedContent.length} 字符")
+                            Logger.d(TAG, "裁剪后内容大小: ${processedContent.length} 字符")
                         }
 
                         val contentHash = ClipboardItem.generateContentHash(processedContent, type, fileName)
@@ -393,21 +393,21 @@ class ClipboardRepository(
                 // 检查内容大小，如果太大则裁剪
                 var processedItem = item
                 if (item.type == ClipboardType.TEXT && ContentLimiter.isContentTooLargeForClipboard(item.content)) {
-                    Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${item.content.length} 字符")
+                    Logger.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${item.content.length} 字符")
                     val truncatedContent = ContentLimiter.truncateForClipboard(item.content)
                     processedItem = item.copy(content = truncatedContent)
-                    Log.d(TAG, "裁剪后内容大小: ${processedItem.content.length} 字符")
+                    Logger.d(TAG, "裁剪后内容大小: ${processedItem.content.length} 字符")
                 }
                 
                 // 记录详细的item信息,用于调试
-                Log.d(TAG, "=== 开始上传剪贴板内容 ===")
-                Log.d(TAG, "Item ID: ${processedItem.id}")
-                Log.d(TAG, "Item Type: ${processedItem.type}")
-                Log.d(TAG, "Item Content: ${processedItem.content.take(50)}...")
-                Log.d(TAG, "Item FileName: ${processedItem.fileName}")
-                Log.d(TAG, "Item LocalPath: ${processedItem.localPath}")
-                Log.d(TAG, "Item FileSize: ${processedItem.fileSize}")
-                Log.d(TAG, "Item Source: ${processedItem.source}")
+                Logger.d(TAG, "=== 开始上传剪贴板内容 ===")
+                Logger.d(TAG, "Item ID: ${processedItem.id}")
+                Logger.d(TAG, "Item Type: ${processedItem.type}")
+                Logger.d(TAG, "Item Content: ${processedItem.content.take(50)}...")
+                Logger.d(TAG, "Item FileName: ${processedItem.fileName}")
+                Logger.d(TAG, "Item LocalPath: ${processedItem.localPath}")
+                Logger.d(TAG, "Item FileSize: ${processedItem.fileSize}")
+                Logger.d(TAG, "Item Source: ${processedItem.source}")
 
                 val api = apiService ?: return@withContext Result.failure(
                     Exception("API服务未初始化")
@@ -421,40 +421,40 @@ class ClipboardRepository(
                 }
 
                 // 对于图片类型,需要先上传文件,然后上传元数据
-                Log.d(TAG, "检查图片上传条件:")
-                Log.d(TAG, "  - item.type == ClipboardType.IMAGE: ${processedItem.type == ClipboardType.IMAGE}")
-                Log.d(TAG, "  - item.localPath != null: ${processedItem.localPath != null}")
-                Log.d(TAG, "  - item.fileName != null: ${processedItem.fileName != null}")
+                Logger.d(TAG, "检查图片上传条件:")
+                Logger.d(TAG, "  - item.type == ClipboardType.IMAGE: ${processedItem.type == ClipboardType.IMAGE}")
+                Logger.d(TAG, "  - item.localPath != null: ${processedItem.localPath != null}")
+                Logger.d(TAG, "  - item.fileName != null: ${processedItem.fileName != null}")
 
                 if (processedItem.type == ClipboardType.IMAGE && processedItem.localPath != null && processedItem.fileName != null) {
-                    Log.d(TAG, "开始处理图片上传: localPath=${processedItem.localPath}, fileName=${processedItem.fileName}")
+                    Logger.d(TAG, "开始处理图片上传: localPath=${processedItem.localPath}, fileName=${processedItem.fileName}")
 
                     // 首先计算文件哈希值
                     val file = File(processedItem.localPath)
                     if (!file.exists()) {
-                        Log.e(TAG, "图片文件不存在: ${processedItem.localPath}")
+                        Logger.e(TAG, "图片文件不存在: ${processedItem.localPath}")
                         return@withContext Result.failure(Exception("图片文件不存在: ${processedItem.localPath}"))
                     }
 
-                    Log.d(TAG, "文件存在,开始计算哈希值: ${file.absolutePath}, 大小: ${file.length()} bytes")
+                    Logger.d(TAG, "文件存在,开始计算哈希值: ${file.absolutePath}, 大小: ${file.length()} bytes")
 
                     val fileHash = calculateFileHash(file)
                     if (fileHash.isEmpty()) {
-                        Log.e(TAG, "无法计算文件哈希值")
+                        Logger.e(TAG, "无法计算文件哈希值")
                         return@withContext Result.failure(Exception("无法计算文件哈希值"))
                     }
 
-                    Log.d(TAG, "文件哈希值计算完成: $fileHash")
+                    Logger.d(TAG, "文件哈希值计算完成: $fileHash")
                     
                     // 检查服务端是否已存在相同内容的剪贴板项目
-                    Log.d(TAG, "检查服务端是否已存在相同内容的剪贴板项目")
+                    Logger.d(TAG, "检查服务端是否已存在相同内容的剪贴板项目")
                     val serverClipboard = api.getClipboard()
                     if (serverClipboard.isSuccessful) {
                         val serverBody = serverClipboard.body()
                         if (serverBody != null && 
                             serverBody.type == "Image" && 
                             serverBody.clipboard == fileHash) {
-                            Log.d(TAG, "服务端已存在相同内容的图片，跳过上传: fileHash=$fileHash")
+                            Logger.d(TAG, "服务端已存在相同内容的图片，跳过上传: fileHash=$fileHash")
                             // 标记为已同步
                             val updatedItem = processedItem.copy(
                                 isSynced = true,
@@ -465,25 +465,25 @@ class ClipboardRepository(
                             lastSyncedContentHash = processedItem.contentHash
                             return@withContext Result.success(updatedItem)
                         } else {
-                            Log.d(TAG, "服务端不存在相同内容的图片，继续上传流程")
+                            Logger.d(TAG, "服务端不存在相同内容的图片，继续上传流程")
                             if (serverBody != null) {
-                                Log.d(TAG, "服务端当前内容: type=${serverBody.type}, clipboard=${serverBody.clipboard}")
+                                Logger.d(TAG, "服务端当前内容: type=${serverBody.type}, clipboard=${serverBody.clipboard}")
                             }
                         }
                     } else {
-                        Log.w(TAG, "获取服务端剪贴板内容失败: HTTP ${serverClipboard.code()}")
+                        Logger.w(TAG, "获取服务端剪贴板内容失败: HTTP ${serverClipboard.code()}")
                     }
 
                     // 上传文件到服务器
-                    Log.d(TAG, "开始调用uploadImageFile方法")
+                    Logger.d(TAG, "开始调用uploadImageFile方法")
                     val uploadSuccess = uploadImageFile(processedItem.localPath, processedItem.fileName)
-                    Log.d(TAG, "uploadImageFile方法调用完成,结果: $uploadSuccess")
+                    Logger.d(TAG, "uploadImageFile方法调用完成,结果: $uploadSuccess")
 
                     if (!uploadSuccess) {
-                        Log.w(TAG, "图片文件上传失败,但继续尝试上传元数据")
+                        Logger.w(TAG, "图片文件上传失败,但继续尝试上传元数据")
                         // 不直接返回失败,而是继续尝试上传元数据
                     } else {
-                        Log.d(TAG, "图片文件上传成功: ${processedItem.fileName}")
+                        Logger.d(TAG, "图片文件上传成功: ${processedItem.fileName}")
                     }
 
                     // 发送元数据,使用文件哈希作为Clipboard内容
@@ -493,7 +493,7 @@ class ClipboardRepository(
                         file = processedItem.fileName
                     )
 
-                    Log.d(TAG, "上传图片元数据: file=$fileHash, filename=${processedItem.fileName}")
+                    Logger.d(TAG, "上传图片元数据: file=$fileHash, filename=${processedItem.fileName}")
 
                     val response = api.uploadClipboard(request)
                     if (response.isSuccessful) {
@@ -508,15 +508,15 @@ class ClipboardRepository(
                         // 记录最后同步的内容哈希
                         lastSyncedContentHash = processedItem.contentHash
 
-                        Log.d(TAG, "图片元数据上传成功")
+                        Logger.d(TAG, "图片元数据上传成功")
                         Result.success(updatedItem)
                     } else {
-                        Log.e(TAG, "图片元数据上传失败: HTTP ${response.code()}")
+                        Logger.e(TAG, "图片元数据上传失败: HTTP ${response.code()}")
                         Result.failure(Exception("元数据上传失败: HTTP ${response.code()}"))
                     }
                 } else {
                     // 文本类型的处理或图片上传条件不满足
-                    Log.d(TAG, "进入非图片上传逆辑,直接上传元数据")
+                    Logger.d(TAG, "进入非图片上传逆辑,直接上传元数据")
                     val request = SyncClipboardRequest(
                         type = typeString,
                         clipboard = processedItem.content,
@@ -583,7 +583,7 @@ class ClipboardRepository(
      */
     suspend fun deleteItem(item: ClipboardItem): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "删除剪贴板记录: id=${item.id}, type=${item.type}, source=${item.source}")
+            Logger.d(TAG, "删除剪贴板记录: id=${item.id}, type=${item.type}, source=${item.source}")
             
             // 如果是图片类型,先清理本地缓存文件
             if (item.type == ClipboardType.IMAGE && !item.localPath.isNullOrEmpty()) {
@@ -593,11 +593,11 @@ class ClipboardRepository(
             // 从数据库中删除记录
             clipboardDao.deleteItem(item)
 
-            Log.d(TAG, "已删除剪贴板项目: ${item.id}, 类型: ${item.type}")
+            Logger.d(TAG, "已删除剪贴板项目: ${item.id}, 类型: ${item.type}")
 
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "删除剪贴板项目时出错", e)
+            Logger.e(TAG, "删除剪贴板项目时出错", e)
             Result.failure(e)
         }
     }
@@ -612,7 +612,7 @@ class ClipboardRepository(
             )
 
             // 尝试获取 SyncClipboard.json 特征文件
-            Log.d(TAG, "测试服务器连接")
+            Logger.d(TAG, "测试服务器连接")
             val response = api.getClipboard()
 
             if (response.isSuccessful) {
@@ -621,7 +621,7 @@ class ClipboardRepository(
                     val body = response.body()
                     if (body != null) {
                         // 如果能成功解析为SyncClipboardResponse对象，说明服务端返回了正确的API格式
-                        Log.d(TAG, "服务器连接成功，返回有效的SyncClipboard格式数据")
+                        Logger.d(TAG, "服务器连接成功，返回有效的SyncClipboard格式数据")
                         settingsRepository.updateConnectionStatus(true)
                         Result.success(true)
                     } else {
@@ -632,7 +632,7 @@ class ClipboardRepository(
                 } catch (e: com.google.gson.JsonSyntaxException) {
                     // JSON解析失败，说明返回的不是有效的SyncClipboard格式
                     settingsRepository.updateConnectionStatus(false)
-                    Log.e(TAG, "服务器返回的内容不是有效的JSON格式", e)
+                    Logger.e(TAG, "服务器返回的内容不是有效的JSON格式", e)
                     Result.failure(Exception("仅支持 SyncClipboard 服务端API,该地址返回的内容不是有效的JSON格式"))
                 }
             } else {
@@ -648,7 +648,7 @@ class ClipboardRepository(
         } catch (e: com.google.gson.JsonSyntaxException) {
             // 处理JSON解析异常 - 这通常意味着服务器返回的不是JSON格式
             settingsRepository.updateConnectionStatus(false)
-            Log.e(TAG, "连接测试时JSON解析失败", e)
+            Logger.e(TAG, "连接测试时JSON解析失败", e)
             Result.failure(Exception("仅支持 SyncClipboard 服务端API,该地址返回的内容不是有效的JSON格式"))
         } catch (e: java.net.ConnectException) {
             settingsRepository.updateConnectionStatus(false)
@@ -664,7 +664,7 @@ class ClipboardRepository(
             Result.failure(Exception("无法解析服务器地址,请检查地址是否正确"))
         } catch (e: Exception) {
             settingsRepository.updateConnectionStatus(false)
-            Log.e(TAG, "连接测试时出错", e)
+            Logger.e(TAG, "连接测试时出错", e)
             Result.failure(e)
         }
     }
@@ -674,15 +674,15 @@ class ClipboardRepository(
      */
     suspend fun forceCleanupExcessData() = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "开始主动清理超出限制的数据...")
+            Logger.d(TAG, "开始主动清理超出限制的数据...")
             cleanupExcessItems()
 
             // 同时清理图片缓存
             cleanupImageCache()
 
-            Log.d(TAG, "主动清理完成")
+            Logger.d(TAG, "主动清理完成")
         } catch (e: Exception) {
-            Log.e(TAG, "主动清理时出错", e)
+            Logger.e(TAG, "主动清理时出错", e)
         }
     }
 
@@ -699,7 +699,7 @@ class ClipboardRepository(
      */
     suspend fun cleanupImageCache() = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "开始清理图片缓存...")
+            Logger.d(TAG, "开始清理图片缓存...")
 
             // 获取所有存在的剪贴板图片记录的本地路径
             val existingImageItems = clipboardDao.getImageItems()
@@ -708,8 +708,8 @@ class ClipboardRepository(
                 .mapNotNull { it.localPath }
                 .toSet()
 
-            Log.d(TAG, "有效图片路径数量: ${validImagePaths.size}")
-            Log.d(TAG, "有效路径样例: ${validImagePaths.take(3)}")
+            Logger.d(TAG, "有效图片路径数量: ${validImagePaths.size}")
+            Logger.d(TAG, "有效路径样例: ${validImagePaths.take(3)}")
 
             // 清理主要的图片缓存目录
             val imageCacheDir = File(context.cacheDir, "images")
@@ -723,9 +723,9 @@ class ClipboardRepository(
                 cleanupClipboardCacheDirectory(clipboardCacheDir, validImagePaths)
             }
 
-            Log.d(TAG, "图片缓存清理完成")
+            Logger.d(TAG, "图片缓存清理完成")
         } catch (e: Exception) {
-            Log.e(TAG, "清理图片缓存时出错", e)
+            Logger.e(TAG, "清理图片缓存时出错", e)
         }
     }
 
@@ -755,24 +755,24 @@ class ClipboardRepository(
                         if (file.delete()) {
                             deletedCount++
                             totalSize += fileSize
-                            Log.d(TAG, "删除无效缓存文件: $filePath (${formatFileSize(fileSize)})")
+                            Logger.d(TAG, "删除无效缓存文件: $filePath (${formatFileSize(fileSize)})")
                         } else {
-                            Log.w(TAG, "无法删除文件: $filePath")
+                            Logger.w(TAG, "无法删除文件: $filePath")
                         }
                     } else if (System.currentTimeMillis() - file.lastModified() > 7 * 24 * 60 * 60 * 1000L) {
                         // 删除超过7天的文件（即使在记录中,可能是僵尸记录）
                         if (file.delete()) {
                             deletedCount++
                             totalSize += fileSize
-                            Log.d(TAG, "删除过期缓存文件: $filePath (${formatFileSize(fileSize)})")
+                            Logger.d(TAG, "删除过期缓存文件: $filePath (${formatFileSize(fileSize)})")
                         }
                     }
                 }
             }
 
-            Log.d(TAG, "缓存目录 $dirName 清理完成: 删除 $deletedCount 个文件,释放 ${formatFileSize(totalSize)}")
+            Logger.d(TAG, "缓存目录 $dirName 清理完成: 删除 $deletedCount 个文件,释放 ${formatFileSize(totalSize)}")
         } catch (e: Exception) {
-            Log.e(TAG, "清理缓存目录 $dirName 时出错", e)
+            Logger.e(TAG, "清理缓存目录 $dirName 时出错", e)
         }
     }
 
@@ -790,7 +790,7 @@ class ClipboardRepository(
             var totalSize = 0L
             val currentTime = System.currentTimeMillis()
 
-            Log.d(TAG, "clipboard_cache目录中共有 ${files.size} 个文件")
+            Logger.d(TAG, "clipboard_cache目录中共有 ${files.size} 个文件")
 
             for (file in files) {
                 if (file.isFile) {
@@ -808,19 +808,19 @@ class ClipboardRepository(
                             deletedCount++
                             totalSize += fileSize
                             val reason = if (!isInValidPaths) "无记录" else "过期(${fileAge / (60 * 60 * 1000)}小时)"
-                            Log.d(TAG, "删除clipboard_cache文件: ${file.name} (${formatFileSize(fileSize)}) - 原因: $reason")
+                            Logger.d(TAG, "删除clipboard_cache文件: ${file.name} (${formatFileSize(fileSize)}) - 原因: $reason")
                         } else {
-                            Log.w(TAG, "无法删除clipboard_cache文件: $filePath")
+                            Logger.w(TAG, "无法删除clipboard_cache文件: $filePath")
                         }
                     } else {
-                        Log.d(TAG, "保留clipboard_cache文件: ${file.name} (有记录且未过期)")
+                        Logger.d(TAG, "保留clipboard_cache文件: ${file.name} (有记录且未过期)")
                     }
                 }
             }
 
-            Log.d(TAG, "clipboard_cache目录清理完成: 删除 $deletedCount 个文件,释放 ${formatFileSize(totalSize)}")
+            Logger.d(TAG, "clipboard_cache目录清理完成: 删除 $deletedCount 个文件,释放 ${formatFileSize(totalSize)}")
         } catch (e: Exception) {
-            Log.e(TAG, "清理clipboard_cache目录时出错", e)
+            Logger.e(TAG, "清理clipboard_cache目录时出错", e)
         }
     }
 
@@ -848,13 +848,13 @@ class ClipboardRepository(
             if (file.exists()) {
                 val fileSize = file.length()
                 if (file.delete()) {
-                    Log.d(TAG, "删除图片缓存文件: $localPath (${formatFileSize(fileSize)})")
+                    Logger.d(TAG, "删除图片缓存文件: $localPath (${formatFileSize(fileSize)})")
                 } else {
-                    Log.w(TAG, "无法删除图片缓存文件: $localPath")
+                    Logger.w(TAG, "无法删除图片缓存文件: $localPath")
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "删除图片缓存文件时出错: $localPath", e)
+            Logger.e(TAG, "删除图片缓存文件时出错: $localPath", e)
         }
     }
 
@@ -906,16 +906,16 @@ class ClipboardRepository(
                     if (downloadedHash == expectedHash) {
                         localFile.absolutePath
                     } else {
-                        Log.w(TAG, "下载的图片哈希值不匹配: 预期=$expectedHash, 实际=$downloadedHash")
+                        Logger.w(TAG, "下载的图片哈希值不匹配: 预期=$expectedHash, 实际=$downloadedHash")
                         localFile.absolutePath // 仍然返回路径,但记录警告
                     }
                 } ?: expectedHash // 如果下载失败,返回哈希值
             } else {
-                Log.e(TAG, "下载图片失败: HTTP ${response.code()}")
+                Logger.e(TAG, "下载图片失败: HTTP ${response.code()}")
                 expectedHash // 下载失败时返回哈希值
             }
         } catch (e: Exception) {
-            Log.e(TAG, "下载图片时出错", e)
+            Logger.e(TAG, "下载图片时出错", e)
             expectedHash // 发生异常时返回哈希值
         }
     }
@@ -924,75 +924,75 @@ class ClipboardRepository(
      * 上传图片文件到服务器
      */
     private suspend fun uploadImageFile(localPath: String, fileName: String): Boolean {
-        Log.d(TAG, "=== 开始上传图片文件 ===")
-        Log.d(TAG, "localPath: $localPath")
-        Log.d(TAG, "fileName: $fileName")
+        Logger.d(TAG, "=== 开始上传图片文件 ===")
+        Logger.d(TAG, "localPath: $localPath")
+        Logger.d(TAG, "fileName: $fileName")
 
         return try {
             val api = apiService
             if (api == null) {
-                Log.e(TAG, "API服务未初始化")
+                Logger.e(TAG, "API服务未初始化")
                 return false
             }
 
             val file = File(localPath)
             if (!file.exists()) {
-                Log.e(TAG, "要上传的图片文件不存在: $localPath")
+                Logger.e(TAG, "要上传的图片文件不存在: $localPath")
                 return false
             }
 
-            Log.d(TAG, "文件存在,大小: ${file.length()} bytes")
+            Logger.d(TAG, "文件存在,大小: ${file.length()} bytes")
 
-            Log.d(TAG, "检查服务器上是否已存在文件: $fileName")
+            Logger.d(TAG, "检查服务器上是否已存在文件: $fileName")
 
             // 检查服务器上是否已存在该文件
             val checkResponse = api.checkFile(fileName)
-            Log.d(TAG, "文件检查响应: HTTP ${checkResponse.code()}")
+            Logger.d(TAG, "文件检查响应: HTTP ${checkResponse.code()}")
 
             if (checkResponse.isSuccessful) {
-                Log.d(TAG, "图片文件已存在于服务器: $fileName")
+                Logger.d(TAG, "图片文件已存在于服务器: $fileName")
                 return true
             } else if (checkResponse.code() != 404) {
                 // 如果不是404错误,说明可能有其他问题
-                Log.w(TAG, "检查文件存在性时出错: HTTP ${checkResponse.code()}")
+                Logger.w(TAG, "检查文件存在性时出错: HTTP ${checkResponse.code()}")
             } else {
-                Log.d(TAG, "文件不存在,需要上传: $fileName")
+                Logger.d(TAG, "文件不存在,需要上传: $fileName")
             }
 
             // 上传文件
-            Log.d(TAG, "开始上传图片文件: $fileName, 大小: ${file.length()} bytes")
+            Logger.d(TAG, "开始上传图片文件: $fileName, 大小: ${file.length()} bytes")
 
             val requestBody = RequestBody.create(
                 "image/*".toMediaType(),
                 file
             )
 
-            Log.d(TAG, "请求体创建完成,开始发送PUT请求")
+            Logger.d(TAG, "请求体创建完成,开始发送PUT请求")
 
             val uploadResponse = api.uploadFile(fileName, requestBody)
             val success = uploadResponse.isSuccessful
 
-            Log.d(TAG, "文件上传响应: HTTP ${uploadResponse.code()}")
+            Logger.d(TAG, "文件上传响应: HTTP ${uploadResponse.code()}")
 
             if (success) {
-                Log.d(TAG, "图片文件上传成功: $fileName")
+                Logger.d(TAG, "图片文件上传成功: $fileName")
             } else {
-                Log.e(TAG, "图片文件上传失败: HTTP ${uploadResponse.code()}")
+                Logger.e(TAG, "图片文件上传失败: HTTP ${uploadResponse.code()}")
                 // 记录响应体信息以便调试
                 try {
                     val errorBody = uploadResponse.errorBody()?.string()
                     if (!errorBody.isNullOrEmpty()) {
-                        Log.e(TAG, "上传错误响应: $errorBody")
+                        Logger.e(TAG, "上传错误响应: $errorBody")
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "读取错误响应时出错", e)
+                    Logger.e(TAG, "读取错误响应时出错", e)
                 }
             }
 
-            Log.d(TAG, "=== 图片文件上传结束,结果: $success ===")
+            Logger.d(TAG, "=== 图片文件上传结束,结果: $success ===")
             success
         } catch (e: Exception) {
-            Log.e(TAG, "上传图片文件时出错", e)
+            Logger.e(TAG, "上传图片文件时出错", e)
             false
         }
     }
@@ -1015,7 +1015,7 @@ class ClipboardRepository(
 
             digest.digest().joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
-            Log.e(TAG, "计算文件哈希时出错", e)
+            Logger.e(TAG, "计算文件哈希时出错", e)
             ""
         }
     }
@@ -1025,24 +1025,24 @@ class ClipboardRepository(
      */
     suspend fun downloadFile(item: ClipboardItem, targetPath: String): Result<String> = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "开始下载文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
+            Logger.d(TAG, "开始下载文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
             
             // 检查是否为文件类型
             if (item.type != ClipboardType.FILE && item.type != ClipboardType.IMAGE) {
-                Log.w(TAG, "只能下载文件类型的内容，当前类型: ${item.type}")
+                Logger.w(TAG, "只能下载文件类型的内容，当前类型: ${item.type}")
                 return@withContext Result.failure(Exception("只能下载文件类型的内容"))
             }
             
             // 如果是图片类型且有本地路径，直接复制文件
             if (item.type == ClipboardType.IMAGE && !item.localPath.isNullOrEmpty()) {
-                Log.d(TAG, "图片文件已有本地缓存，直接复制: ${item.localPath}")
+                Logger.d(TAG, "图片文件已有本地缓存，直接复制: ${item.localPath}")
                 val sourceFile = File(item.localPath)
                 if (sourceFile.exists()) {
                     val fileName = item.fileName ?: "clipboard_image_${System.currentTimeMillis()}.jpg"
                     val targetFile = if (targetPath.startsWith("content://")) {
                         // 如果是URI格式，需要特殊处理
                         val uri = Uri.parse(targetPath)
-                        Log.d(TAG, "目标路径为URI格式: $uri")
+                        Logger.d(TAG, "目标路径为URI格式: $uri")
                         // 使用DocumentFile API处理
                         try {
                             val documentFile = DocumentFile.fromTreeUri(context, uri)
@@ -1053,44 +1053,44 @@ class ClipboardRepository(
                                     return@withContext Result.success("已保存到: ${documentFile.name}/${fileName}")
                                 }
                             } else {
-                                Log.w(TAG, "DocumentFile不存在或不是目录: $documentFile")
+                                Logger.w(TAG, "DocumentFile不存在或不是目录: $documentFile")
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "使用DocumentFile处理URI时出错", e)
+                            Logger.e(TAG, "使用DocumentFile处理URI时出错", e)
                         }
                         // 如果DocumentFile处理失败，使用默认下载目录
                         val downloadDir = File(context.getExternalFilesDir(null), "downloads")
                         if (!downloadDir.exists()) downloadDir.mkdirs()
                         File(downloadDir, fileName)
                     } else {
-                        Log.d(TAG, "目标路径为文件路径: $targetPath")
+                        Logger.d(TAG, "目标路径为文件路径: $targetPath")
                         File(targetPath)
                     }
                     
                     val targetDir = targetFile.parentFile
                     if (targetDir != null && !targetDir.exists()) {
-                        Log.d(TAG, "创建目标目录: ${targetDir.absolutePath}")
+                        Logger.d(TAG, "创建目标目录: ${targetDir.absolutePath}")
                         targetDir.mkdirs()
                     }
                     
-                    Log.d(TAG, "从 ${sourceFile.absolutePath} 复制到 ${targetFile.absolutePath}")
+                    Logger.d(TAG, "从 ${sourceFile.absolutePath} 复制到 ${targetFile.absolutePath}")
                     sourceFile.copyTo(targetFile, overwrite = true)
-                    Log.d(TAG, "文件复制完成: ${targetFile.absolutePath}")
+                    Logger.d(TAG, "文件复制完成: ${targetFile.absolutePath}")
                     return@withContext Result.success(targetFile.absolutePath)
                 } else {
-                    Log.w(TAG, "本地缓存文件不存在: ${item.localPath}")
+                    Logger.w(TAG, "本地缓存文件不存在: ${item.localPath}")
                 }
             }
             
             // 对于其他文件类型，需要从服务器下载
             val api = apiService ?: return@withContext Result.failure(Exception("API服务未初始化"))
-            Log.d(TAG, "从服务器下载文件")
+            Logger.d(TAG, "从服务器下载文件")
             
             // 确保目标目录存在
             val targetFile = if (targetPath.startsWith("content://")) {
                 // 如果是URI格式，需要特殊处理
                 val uri = Uri.parse(targetPath)
-                Log.d(TAG, "目标路径为URI格式: $uri")
+                Logger.d(TAG, "目标路径为URI格式: $uri")
                 // 使用DocumentFile API处理
                 try {
                     val documentFile = DocumentFile.fromTreeUri(context, uri)
@@ -1100,11 +1100,11 @@ class ClipboardRepository(
                         if (newFile != null) {
                             // 下载文件并写入DocumentFile
                             val fileNameForDownload = item.fileName ?: return@withContext Result.failure(Exception("文件名为空"))
-                            Log.d(TAG, "开始下载文件: $fileNameForDownload")
+                            Logger.d(TAG, "开始下载文件: $fileNameForDownload")
                             val response = api.downloadFile(fileNameForDownload)
                             
                             if (response.isSuccessful) {
-                                Log.d(TAG, "服务器响应成功，开始保存文件")
+                                Logger.d(TAG, "服务器响应成功，开始保存文件")
                                 response.body()?.let { responseBody ->
                                     val inputStream = responseBody.byteStream()
                                     val outputStream = context.contentResolver.openOutputStream(newFile.uri)
@@ -1115,49 +1115,49 @@ class ClipboardRepository(
                                                 input.copyTo(output)
                                             }
                                         }
-                                        Log.d(TAG, "文件下载完成并保存到DocumentFile")
+                                        Logger.d(TAG, "文件下载完成并保存到DocumentFile")
                                         return@withContext Result.success("已保存到: ${documentFile.name}/${fileName}")
                                     } else {
-                                        Log.e(TAG, "无法打开DocumentFile输出流")
+                                        Logger.e(TAG, "无法打开DocumentFile输出流")
                                     }
                                 }
                             }
                             return@withContext Result.failure(Exception("下载响应为空"))
                         } else {
-                            Log.e(TAG, "无法创建DocumentFile文件")
+                            Logger.e(TAG, "无法创建DocumentFile文件")
                         }
                     } else {
-                        Log.w(TAG, "DocumentFile不存在或不是目录: $documentFile")
+                        Logger.w(TAG, "DocumentFile不存在或不是目录: $documentFile")
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "使用DocumentFile处理URI时出错", e)
+                    Logger.e(TAG, "使用DocumentFile处理URI时出错", e)
                 }
                 // 如果DocumentFile处理失败，使用默认下载目录
                 val downloadDir = File(context.getExternalFilesDir(null), "downloads")
                 if (!downloadDir.exists()) {
-                    Log.d(TAG, "创建下载目录: ${downloadDir.absolutePath}")
+                    Logger.d(TAG, "创建下载目录: ${downloadDir.absolutePath}")
                     downloadDir.mkdirs()
                 }
                 val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
                 File(downloadDir, fileName)
             } else {
-                Log.d(TAG, "目标路径为文件路径: $targetPath")
+                Logger.d(TAG, "目标路径为文件路径: $targetPath")
                 File(targetPath)
             }
             
             val targetDir = targetFile.parentFile
             if (targetDir != null && !targetDir.exists()) {
-                Log.d(TAG, "创建目标目录: ${targetDir.absolutePath}")
+                Logger.d(TAG, "创建目标目录: ${targetDir.absolutePath}")
                 targetDir.mkdirs()
             }
             
             // 下载文件
             val fileName = item.fileName ?: return@withContext Result.failure(Exception("文件名为空"))
-            Log.d(TAG, "开始下载文件: $fileName")
+            Logger.d(TAG, "开始下载文件: $fileName")
             val response = api.downloadFile(fileName)
             
             if (response.isSuccessful) {
-                Log.d(TAG, "服务器响应成功，开始保存文件")
+                Logger.d(TAG, "服务器响应成功，开始保存文件")
                 response.body()?.let { responseBody ->
                     val inputStream = responseBody.byteStream()
                     val outputStream = targetFile.outputStream()
@@ -1168,15 +1168,15 @@ class ClipboardRepository(
                         }
                     }
                     
-                    Log.d(TAG, "文件下载完成: ${targetFile.absolutePath}")
+                    Logger.d(TAG, "文件下载完成: ${targetFile.absolutePath}")
                     return@withContext Result.success(targetFile.absolutePath)
                 } ?: Result.failure(Exception("下载响应为空"))
             } else {
-                Log.e(TAG, "下载失败: HTTP ${response.code()}")
+                Logger.e(TAG, "下载失败: HTTP ${response.code()}")
                 Result.failure(Exception("下载失败: HTTP ${response.code()}"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "下载文件时出错", e)
+            Logger.e(TAG, "下载文件时出错", e)
             Result.failure(e)
         }
     }
@@ -1197,7 +1197,7 @@ class ClipboardRepository(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "复制文件到DocumentFile时出错", e)
+            Logger.e(TAG, "复制文件到DocumentFile时出错", e)
         }
     }
     
@@ -1212,22 +1212,30 @@ class ClipboardRepository(
                 val hasPermission = permissions.any { it.uri == uri && it.isReadPermission && it.isWritePermission }
                 
                 if (!hasPermission) {
-                    Log.w(TAG, "URI权限已丢失: $uriString")
+                    Logger.w(TAG, "URI权限已丢失: $uriString")
                     return false
                 }
                 
-                Log.d(TAG, "URI权限有效: $uriString")
+                Logger.d(TAG, "URI权限有效: $uriString")
                 true
             } else {
                 // 普通文件路径不需要权限检查
                 true
             }
         } catch (e: Exception) {
-            Log.e(TAG, "检查URI权限时出错", e)
+            Logger.e(TAG, "检查URI权限时出错", e)
             false
         }
     }
 }
+
+
+
+
+
+
+
+
 
 
 

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.*
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -64,16 +65,16 @@ class SyncWorker(
             
             // 3. 记录成功的操作
             if (uploadCount > 0) {
-                android.util.Log.d("SyncWorker", "已上传 $uploadCount 个未同步项目")
+                Logger.d("SyncWorker", "已上传 $uploadCount 个未同步项目")
             }
             
             Result.success()
         } catch (e: Exception) {
-            android.util.Log.e("SyncWorker", "同步失败", e)
+            Logger.e("SyncWorker", "同步失败", e)
             if (runAttemptCount < 3) {
-                Result.retry()
+                return Result.retry()
             } else {
-                Result.failure()
+                return Result.failure()
             }
         }
     }

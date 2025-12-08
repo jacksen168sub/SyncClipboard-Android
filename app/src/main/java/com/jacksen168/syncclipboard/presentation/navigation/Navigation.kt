@@ -15,13 +15,18 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.presentation.screen.HomeScreen
+import com.jacksen168.syncclipboard.presentation.screen.LogScreen // 添加日志页面导入
 import com.jacksen168.syncclipboard.presentation.screen.SettingsScreen
+import com.jacksen168.syncclipboard.data.repository.SettingsRepository
+import android.content.Context
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
  * 导航路由
  */
 sealed class Screen(val route: String, val titleResId: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Home : Screen("home", R.string.home, Icons.Filled.Home)
+    object Logs : Screen("logs", R.string.logs, Icons.Filled.List) // 添加日志页面路由
     object Settings : Screen("settings", R.string.navigation_settings, Icons.Filled.Settings)
 }
 
@@ -31,12 +36,15 @@ sealed class Screen(val route: String, val titleResId: Int, val icon: androidx.c
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SyncClipboardNavigation(
-    onDownloadLocationRequest: () -> Unit = {}
+    onDownloadLocationRequest: () -> Unit = {},
+    onCreateLogFile: ((String) -> Unit)? = null,
+    context: Context
 ) {
     val navController = rememberNavController()
     
     val items = listOf(
         Screen.Home,
+        Screen.Logs, // 添加日志页面到导航项
         Screen.Settings
     )
     
@@ -83,6 +91,13 @@ fun SyncClipboardNavigation(
         ) {
             composable(Screen.Home.route) {
                 HomeScreen()
+            }
+            composable(Screen.Logs.route) { // 添加日志页面路由
+                val settingsRepository = SettingsRepository(context)
+                LogScreen(
+                    onCreateLogFile = onCreateLogFile,
+                    settingsRepository = settingsRepository
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(

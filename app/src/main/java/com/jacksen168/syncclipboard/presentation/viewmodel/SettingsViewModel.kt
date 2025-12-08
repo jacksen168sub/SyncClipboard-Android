@@ -10,6 +10,7 @@ import com.jacksen168.syncclipboard.data.model.ServerConfig
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.service.ClipboardSyncService
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -61,6 +62,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新服务器URL
      */
     fun updateServerUrl(url: String) {
+        Logger.d("SettingsViewModel", "更新服务器URL: $url")
         _serverConfig.value = _serverConfig.value.copy(url = url.trim())
         saveServerConfigInternal()
     }
@@ -69,6 +71,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新用户名
      */
     fun updateUsername(username: String) {
+        Logger.d("SettingsViewModel", "更新用户名: $username")
         _serverConfig.value = _serverConfig.value.copy(username = username.trim())
         saveServerConfigInternal()
     }
@@ -77,6 +80,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新密码
      */
     fun updatePassword(password: String) {
+        Logger.d("SettingsViewModel", "更新密码")
         _serverConfig.value = _serverConfig.value.copy(password = password)
         saveServerConfigInternal()
     }
@@ -85,6 +89,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新信任不安全SSL设置
      */
     fun updateTrustUnsafeSSL(trust: Boolean) {
+        Logger.d("SettingsViewModel", "更新信任不安全SSL设置: $trust")
         _serverConfig.value = _serverConfig.value.copy(trustUnsafeSSL = trust)
         saveServerConfigInternal()
     }
@@ -93,11 +98,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 内部保存服务器配置（实时保存）
      */
     private fun saveServerConfigInternal() {
+        Logger.d("SettingsViewModel", "内部保存服务器配置")
         viewModelScope.launch {
             try {
                 settingsRepository.saveServerConfig(_serverConfig.value)
+                Logger.d("SettingsViewModel", "服务器配置内部保存成功")
             } catch (e: Exception) {
-                // 静默失败，不影响用户体验
+                Logger.e("SettingsViewModel", "服务器配置内部保存失败", e)
             }
         }
     }
@@ -106,12 +113,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 保存服务器配置
      */
     fun saveServerConfig() {
+        Logger.d("SettingsViewModel", "保存服务器配置")
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                 
                 // 验证输入
                 if (_serverConfig.value.url.isEmpty()) {
+                    Logger.w("SettingsViewModel", "服务器地址为空")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "请输入服务器地址"
@@ -120,6 +129,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
                 if (_serverConfig.value.username.isEmpty()) {
+                    Logger.w("SettingsViewModel", "用户名为空")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "请输入用户名"
@@ -128,6 +138,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
                 if (_serverConfig.value.password.isEmpty()) {
+                    Logger.w("SettingsViewModel", "密码为空")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "请输入密码"
@@ -136,14 +147,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
                 // 保存配置
+                Logger.d("SettingsViewModel", "开始保存服务器配置到仓库")
                 settingsRepository.saveServerConfig(_serverConfig.value)
                 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     successMessage = "服务器配置已保存"
                 )
+                Logger.d("SettingsViewModel", "服务器配置保存成功")
                 
             } catch (e: Exception) {
+                Logger.e("SettingsViewModel", "保存服务器配置失败", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "保存失败: ${e.message}"
@@ -156,6 +170,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 测试服务器连接
      */
     fun testConnection() {
+        Logger.d("SettingsViewModel", "测试服务器连接")
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(
@@ -165,18 +180,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 )
                 
                 // 先保存配置
+                Logger.d("SettingsViewModel", "先保存配置再测试连接")
                 settingsRepository.saveServerConfig(_serverConfig.value)
                 
                 // 测试连接（简化版本，只测试网络可达性）
+                Logger.d("SettingsViewModel", "开始测试连接")
                 val result = clipboardRepository.testConnection()
                 result.onSuccess { isConnected ->
                     if (isConnected) {
+                        Logger.d("SettingsViewModel", "连接测试成功")
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = null,
                             successMessage = "连接成功"
                         )
                     } else {
+                        Logger.w("SettingsViewModel", "连接测试失败")
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = "连接失败",
@@ -184,6 +203,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         )
                     }
                 }.onFailure { e ->
+                    Logger.e("SettingsViewModel", "连接测试失败", e)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "连接失败: ${e.message}",
@@ -192,6 +212,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
             } catch (e: Exception) {
+                Logger.e("SettingsViewModel", "连接测试出错", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "连接测试出错: ${e.message}",
@@ -224,9 +245,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             viewModelScope.launch {
                 try {
                     ClipboardSyncService.restartService(getApplication())
-                    android.util.Log.d("SettingsViewModel", "同步间隔已更新，服务已重启")
+                    Logger.d("SettingsViewModel", "同步间隔已更新，服务已重启")
                 } catch (e: Exception) {
-                    android.util.Log.e("SettingsViewModel", "重启服务失败", e)
+                    Logger.e("SettingsViewModel", "重启服务失败", e)
                 }
             }
         }
@@ -259,7 +280,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 // 确保设置被保存
                 settingsRepository.saveAppSettings(_appSettings.value)
                 
-                android.util.Log.d("SettingsViewModel", "隐藏在多任务页面设置已更改为: $enabled 并已保存")
+                Logger.d("SettingsViewModel", "隐藏在多任务页面设置已更改为: $enabled 并已保存")
                 
                 // 等待一下确保保存完成
                 kotlinx.coroutines.delay(100)
@@ -267,12 +288,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 // 再次验证设置是否正确保存
                 val savedSettings = settingsRepository.appSettingsFlow.first()
                 if (savedSettings.hideInRecents == enabled) {
-                    android.util.Log.d("SettingsViewModel", "设置保存验证成功")
+                    Logger.d("SettingsViewModel", "设置保存验证成功")
                 } else {
-                    android.util.Log.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.hideInRecents}")
+                    Logger.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.hideInRecents}")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("SettingsViewModel", "更新隐藏设置失败", e)
+                Logger.e("SettingsViewModel", "更新隐藏设置失败", e)
             }
         }
     }
@@ -288,7 +309,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 // 确保设置被保存
                 settingsRepository.saveAppSettings(_appSettings.value)
                 
-                android.util.Log.d("SettingsViewModel", "解锁后自动重新写入设置已更改为: $enabled 并已保存")
+                Logger.d("SettingsViewModel", "解锁后自动重新写入设置已更改为: $enabled 并已保存")
                 
                 // 等待一下确保保存完成
                 kotlinx.coroutines.delay(100)
@@ -296,12 +317,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 // 再次验证设置是否正确保存
                 val savedSettings = settingsRepository.appSettingsFlow.first()
                 if (savedSettings.rewriteAfterUnlock == enabled) {
-                    android.util.Log.d("SettingsViewModel", "设置保存验证成功")
+                    Logger.d("SettingsViewModel", "设置保存验证成功")
                 } else {
-                    android.util.Log.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.rewriteAfterUnlock}")
+                    Logger.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.rewriteAfterUnlock}")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("SettingsViewModel", "更新解锁后重新写入设置失败", e)
+                Logger.e("SettingsViewModel", "更新解锁后重新写入设置失败", e)
             }
         }
     }
@@ -317,7 +338,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 // 确保设置被保存
                 settingsRepository.saveAppSettings(_appSettings.value)
                 
-                android.util.Log.d("SettingsViewModel", "前台服务保活设置已更改为: $enabled 并已保存")
+                Logger.d("SettingsViewModel", "前台服务保活设置已更改为: $enabled 并已保存")
                 
                 // 等待一下确保保存完成
                 kotlinx.coroutines.delay(100)
@@ -325,12 +346,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 // 再次验证设置是否正确保存
                 val savedSettings = settingsRepository.appSettingsFlow.first()
                 if (savedSettings.foregroundServiceKeepalive == enabled) {
-                    android.util.Log.d("SettingsViewModel", "设置保存验证成功")
+                    Logger.d("SettingsViewModel", "设置保存验证成功")
                 } else {
-                    android.util.Log.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.foregroundServiceKeepalive}")
+                    Logger.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.foregroundServiceKeepalive}")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("SettingsViewModel", "更新前台服务保活设置失败", e)
+                Logger.e("SettingsViewModel", "更新前台服务保活设置失败", e)
             }
         }
     }
@@ -348,6 +369,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun updateDownloadLocation(location: String) {
         _appSettings.value = _appSettings.value.copy(downloadLocation = location)
+        saveAppSettings()
+    }
+    
+    /**
+     * 更新日志显示数量
+     */
+    fun updateLogDisplayCount(count: Int) {
+        _appSettings.value = _appSettings.value.copy(logDisplayCount = count)
         saveAppSettings()
     }
     
@@ -373,11 +402,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         if (validCount < oldCount) {
             viewModelScope.launch {
                 try {
-                    android.util.Log.d("SettingsViewModel", "历史显示数量从 $oldCount 更改为 $validCount，开始清理超出限制的数据")
+                    Logger.d("SettingsViewModel", "历史显示数量从 $oldCount 更改为 $validCount，开始清理超出限制的数据")
                     clipboardRepository.forceCleanupExcessData()
-                    android.util.Log.d("SettingsViewModel", "数据清理完成")
+                    Logger.d("SettingsViewModel", "数据清理完成")
                 } catch (e: Exception) {
-                    android.util.Log.e("SettingsViewModel", "清理超出限制数据时出错", e)
+                    Logger.e("SettingsViewModel", "清理超出限制数据时出错", e)
                 }
             }
         }
