@@ -62,6 +62,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新服务器URL
      */
     fun updateServerUrl(url: String) {
+        Logger.d("SettingsViewModel", "更新服务器URL: $url")
         _serverConfig.value = _serverConfig.value.copy(url = url.trim())
         saveServerConfigInternal()
     }
@@ -70,6 +71,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新用户名
      */
     fun updateUsername(username: String) {
+        Logger.d("SettingsViewModel", "更新用户名: $username")
         _serverConfig.value = _serverConfig.value.copy(username = username.trim())
         saveServerConfigInternal()
     }
@@ -78,6 +80,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新密码
      */
     fun updatePassword(password: String) {
+        Logger.d("SettingsViewModel", "更新密码")
         _serverConfig.value = _serverConfig.value.copy(password = password)
         saveServerConfigInternal()
     }
@@ -86,6 +89,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 更新信任不安全SSL设置
      */
     fun updateTrustUnsafeSSL(trust: Boolean) {
+        Logger.d("SettingsViewModel", "更新信任不安全SSL设置: $trust")
         _serverConfig.value = _serverConfig.value.copy(trustUnsafeSSL = trust)
         saveServerConfigInternal()
     }
@@ -94,11 +98,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 内部保存服务器配置（实时保存）
      */
     private fun saveServerConfigInternal() {
+        Logger.d("SettingsViewModel", "内部保存服务器配置")
         viewModelScope.launch {
             try {
                 settingsRepository.saveServerConfig(_serverConfig.value)
+                Logger.d("SettingsViewModel", "服务器配置内部保存成功")
             } catch (e: Exception) {
-                // 静默失败，不影响用户体验
+                Logger.e("SettingsViewModel", "服务器配置内部保存失败", e)
             }
         }
     }
@@ -107,12 +113,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 保存服务器配置
      */
     fun saveServerConfig() {
+        Logger.d("SettingsViewModel", "保存服务器配置")
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                 
                 // 验证输入
                 if (_serverConfig.value.url.isEmpty()) {
+                    Logger.w("SettingsViewModel", "服务器地址为空")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "请输入服务器地址"
@@ -121,6 +129,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
                 if (_serverConfig.value.username.isEmpty()) {
+                    Logger.w("SettingsViewModel", "用户名为空")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "请输入用户名"
@@ -129,6 +138,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
                 if (_serverConfig.value.password.isEmpty()) {
+                    Logger.w("SettingsViewModel", "密码为空")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "请输入密码"
@@ -137,14 +147,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
                 // 保存配置
+                Logger.d("SettingsViewModel", "开始保存服务器配置到仓库")
                 settingsRepository.saveServerConfig(_serverConfig.value)
                 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     successMessage = "服务器配置已保存"
                 )
+                Logger.d("SettingsViewModel", "服务器配置保存成功")
                 
             } catch (e: Exception) {
+                Logger.e("SettingsViewModel", "保存服务器配置失败", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "保存失败: ${e.message}"
@@ -157,6 +170,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      * 测试服务器连接
      */
     fun testConnection() {
+        Logger.d("SettingsViewModel", "测试服务器连接")
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(
@@ -166,18 +180,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 )
                 
                 // 先保存配置
+                Logger.d("SettingsViewModel", "先保存配置再测试连接")
                 settingsRepository.saveServerConfig(_serverConfig.value)
                 
                 // 测试连接（简化版本，只测试网络可达性）
+                Logger.d("SettingsViewModel", "开始测试连接")
                 val result = clipboardRepository.testConnection()
                 result.onSuccess { isConnected ->
                     if (isConnected) {
+                        Logger.d("SettingsViewModel", "连接测试成功")
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = null,
                             successMessage = "连接成功"
                         )
                     } else {
+                        Logger.w("SettingsViewModel", "连接测试失败")
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = "连接失败",
@@ -185,6 +203,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         )
                     }
                 }.onFailure { e ->
+                    Logger.e("SettingsViewModel", "连接测试失败", e)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "连接失败: ${e.message}",
@@ -193,6 +212,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
                 
             } catch (e: Exception) {
+                Logger.e("SettingsViewModel", "连接测试出错", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "连接测试出错: ${e.message}",

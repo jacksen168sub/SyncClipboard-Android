@@ -28,10 +28,13 @@ object ApiClient {
      * 验证URL是否有效
      */
     fun validateUrl(url: String): Result<String> {
+        Logger.d("ApiClient", "开始验证URL: $url")
         return try {
             val validUrl = validateAndNormalizeUrl(url)
+            Logger.d("ApiClient", "URL验证成功: $validUrl")
             Result.success(validUrl)
         } catch (e: Exception) {
+            Logger.e("ApiClient", "URL验证失败: $url", e)
             Result.failure(e)
         }
     }
@@ -45,6 +48,8 @@ object ApiClient {
         password: String = "",
         trustUnsafeSSL: Boolean = false
     ): SyncClipboardApi {
+        Logger.d("ApiClient", "开始创建API服务: baseUrl=$baseUrl, username=$username, trustUnsafeSSL=$trustUnsafeSSL")
+        
         val gson = GsonBuilder()
             .setDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")
             .setLenient()
@@ -64,7 +69,9 @@ object ApiClient {
                     requestBuilder.header("Authorization", credentials)
                 }
                 
-                chain.proceed(requestBuilder.build())
+                val request = requestBuilder.build()
+                // Logger.d("ApiClient", "发送请求: ${request.method} ${request.url}")
+                chain.proceed(request)
             }
             .authenticator(BasicAuthenticator(username, password))
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -73,6 +80,7 @@ object ApiClient {
             .apply {
                 // 如果允许信任不安全的SSL，配置相应的SSL设置
                 if (trustUnsafeSSL) {
+                    Logger.w("ApiClient", "启用不安全SSL配置")
                     configureUnsafeSSL(this)
                 }
             }
@@ -84,6 +92,7 @@ object ApiClient {
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
         
+        Logger.d("ApiClient", "API服务创建完成")
         return retrofit.create(SyncClipboardApi::class.java)
     }
     
@@ -91,6 +100,7 @@ object ApiClient {
      * 创建日志拦截器
      */
     private fun createLoggingInterceptor(): HttpLoggingInterceptor {
+        Logger.d("ApiClient", "创建日志拦截器")
         return HttpLoggingInterceptor().apply {
             level = if (com.jacksen168.syncclipboard.BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
