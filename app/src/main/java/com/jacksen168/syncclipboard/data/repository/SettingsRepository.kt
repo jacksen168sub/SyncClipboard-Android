@@ -7,13 +7,13 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.data.model.ServerConfig
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 import android.util.Base64
-import android.util.Log
 
 // 扩展属性创建DataStore
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -115,7 +115,7 @@ class SettingsRepository(private val context: Context) {
             preferences[DOWNLOAD_LOCATION_KEY] = settings.downloadLocation
             preferences[AUTO_SAVE_FILES_KEY] = settings.autoSaveFiles
         }
-        Log.d("SettingsRepository", "保存应用设置")
+        Logger.d("SettingsRepository", "保存应用设置")
     }
     
     /**
@@ -188,9 +188,9 @@ class SettingsRepository(private val context: Context) {
         try {
             // 删除数据库文件
             context.deleteDatabase("clipboard_database")
-            Log.d("SettingsRepository", context.getString(R.string.database_reset_log))
+            Logger.d("SettingsRepository", context.getString(R.string.database_reset_log))
         } catch (e: Exception) {
-            Log.e("SettingsRepository", context.getString(R.string.database_reset_error_log), e)
+            Logger.e("SettingsRepository", context.getString(R.string.database_reset_error_log), e)
         }
     }
 }

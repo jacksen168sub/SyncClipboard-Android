@@ -10,6 +10,7 @@ import androidx.work.WorkManager
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.UpdateRepository
+import com.jacksen168.syncclipboard.util.Logger
 import com.jacksen168.syncclipboard.work.SyncWorkManagerFactory
 
 class SyncClipboardApplication : Application(), Configuration.Provider {
@@ -29,6 +30,9 @@ class SyncClipboardApplication : Application(), Configuration.Provider {
     
     override fun onCreate() {
         super.onCreate()
+        
+        // 初始化Logger
+        Logger.getInstance(this)
         
         // 创建通知渠道
         createNotificationChannels()

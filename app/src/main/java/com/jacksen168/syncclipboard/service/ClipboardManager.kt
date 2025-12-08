@@ -4,11 +4,11 @@ import android.content.*
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import com.jacksen168.syncclipboard.data.model.ClipboardItem
 import com.jacksen168.syncclipboard.data.model.ClipboardType
 import com.jacksen168.syncclipboard.data.model.ClipboardSource
 import com.jacksen168.syncclipboard.util.ContentLimiter
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,7 +62,7 @@ class ClipboardManager(private val context: Context) {
         clipboardManager.addPrimaryClipChangedListener(clipboardListener)
         isListening = true
         
-        Log.d(TAG, "开始监听剪贴板变化")
+        Logger.d(TAG, "开始监听剪贴板变化")
         
         // 初始检查当前剪贴板内容
         handleClipboardChange()
@@ -78,7 +78,7 @@ class ClipboardManager(private val context: Context) {
         clipboardListener = null
         isListening = false
         
-        Log.d(TAG, "停止监听剪贴板变化")
+        Logger.d(TAG, "停止监听剪贴板变化")
     }
     
     /**
@@ -99,16 +99,16 @@ class ClipboardManager(private val context: Context) {
                     
                     // 检查内容大小，如果太大则裁剪
                     if (ContentLimiter.isContentTooLargeForDatabase(content)) {
-                        Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                        Logger.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
                         content = ContentLimiter.truncateForDatabase(content)
-                        Log.d(TAG, "裁剪后内容大小: ${content.length} 字符")
+                        Logger.d(TAG, "裁剪后内容大小: ${content.length} 字符")
                     }
                     
                     val contentHash = content.hashCode().toString()
                     
                     // 检查是否是刚刚设置的内容（防循环）
                     if (isRecentlySetContent(contentHash)) {
-                        Log.d(TAG, "检测到刚刚设置的内容，跳过处理: 文本")
+                        Logger.d(TAG, "检测到刚刚设置的内容，跳过处理: 文本")
                         return
                     }
                     
@@ -135,7 +135,7 @@ class ClipboardManager(private val context: Context) {
                     
                     // 检查是否是刚刚设置的内容（防循环）
                     if (isRecentlySetContent(uriHash)) {
-                        Log.d(TAG, "检测到刚刚设置的内容，跳过处理: 图片")
+                        Logger.d(TAG, "检测到刚刚设置的内容，跳过处理: 图片")
                         return
                     }
                     
@@ -150,11 +150,11 @@ class ClipboardManager(private val context: Context) {
             
             clipboardItem?.let {
                 _clipboardChangeFlow.value = it
-                Log.d(TAG, "检测到剪贴板变化: ${it.type}, 内容长度: ${it.content.length}")
+                Logger.d(TAG, "检测到剪贴板变化: ${it.type}, 内容长度: ${it.content.length}")
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "处理剪贴板变化时出错", e)
+            Logger.e(TAG, "处理剪贴板变化时出错", e)
         }
     }
     
@@ -177,7 +177,7 @@ class ClipboardManager(private val context: Context) {
                     // 尝试从URI获取原始文件名
                     originalFileName = getFileNameFromUri(uri)
                 } catch (e: Exception) {
-                    Log.w(TAG, "无法从URI获取原始文件名", e)
+                    Logger.w(TAG, "无法从URI获取原始文件名", e)
                 }
                 
                 // 生成文件名 - 如果有原始文件名则使用，否则使用基于内容哈希的统一命名格式
@@ -234,7 +234,7 @@ class ClipboardManager(private val context: Context) {
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "处理图片URI时出错", e)
+            Logger.e(TAG, "处理图片URI时出错", e)
             null
         }
     }
@@ -270,7 +270,7 @@ class ClipboardManager(private val context: Context) {
             
             null
         } catch (e: Exception) {
-            Log.w(TAG, "从URI获取文件名时出错", e)
+            Logger.w(TAG, "从URI获取文件名时出错", e)
             null
         }
     }
@@ -283,9 +283,9 @@ class ClipboardManager(private val context: Context) {
             // 检查内容大小，如果太大则裁剪
             var processedText = text
             if (ContentLimiter.isContentTooLargeForClipboard(text)) {
-                Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${text.length} 字符")
+                Logger.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${text.length} 字符")
                 processedText = ContentLimiter.truncateForClipboard(text)
-                Log.d(TAG, "裁剪后内容大小: ${processedText.length} 字符")
+                Logger.d(TAG, "裁剪后内容大小: ${processedText.length} 字符")
             }
             
             // 记录即将设置的内容哈希，避免循环检测
@@ -294,9 +294,9 @@ class ClipboardManager(private val context: Context) {
             
             val clip = ClipData.newPlainText(label, processedText)
             clipboardManager.setPrimaryClip(clip)
-            Log.d(TAG, "设置文本到剪贴板: ${processedText.take(50)}...")
+            Logger.d(TAG, "设置文本到剪贴板: ${processedText.take(50)}...")
         } catch (e: Exception) {
-            Log.e(TAG, "设置文本到剪贴板时出错", e)
+            Logger.e(TAG, "设置文本到剪贴板时出错", e)
         }
     }
     
@@ -311,9 +311,9 @@ class ClipboardManager(private val context: Context) {
             
             val clip = ClipData.newUri(context.contentResolver, label, uri)
             clipboardManager.setPrimaryClip(clip)
-            Log.d(TAG, "设置图片到剪贴板: $uri")
+            Logger.d(TAG, "设置图片到剪贴板: $uri")
         } catch (e: Exception) {
-            Log.e(TAG, "设置图片到剪贴板时出错", e)
+            Logger.e(TAG, "设置图片到剪贴板时出错", e)
         }
     }
     
@@ -329,7 +329,7 @@ class ClipboardManager(private val context: Context) {
                 
                 // 检查内容大小，如果太大则裁剪
                 if (content != null && ContentLimiter.isContentTooLargeForClipboard(content)) {
-                    Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                    Logger.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
                     return ContentLimiter.truncateForClipboard(content)
                 }
                 
@@ -338,7 +338,7 @@ class ClipboardManager(private val context: Context) {
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "获取剪贴板文本内容时出错", e)
+            Logger.e(TAG, "获取剪贴板文本内容时出错", e)
             null
         }
     }
@@ -357,9 +357,9 @@ class ClipboardManager(private val context: Context) {
                         
                         // 检查内容大小，如果太大则裁剪
                         if (ContentLimiter.isContentTooLargeForDatabase(content)) {
-                            Log.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
+                            Logger.w(TAG, "检测到过大的文本内容，正在进行裁剪: ${content.length} 字符")
                             content = ContentLimiter.truncateForDatabase(content)
-                            Log.d(TAG, "裁剪后内容大小: ${content.length} 字符")
+                            Logger.d(TAG, "裁剪后内容大小: ${content.length} 字符")
                         }
                         
                         ClipboardItem(
@@ -380,7 +380,7 @@ class ClipboardManager(private val context: Context) {
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "获取剪贴板内容时出错", e)
+            Logger.e(TAG, "获取剪贴板内容时出错", e)
             null
         }
     }
@@ -403,7 +403,7 @@ class ClipboardManager(private val context: Context) {
             
             digest.digest().joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
-            Log.e(TAG, "计算文件哈希时出错", e)
+            Logger.e(TAG, "计算文件哈希时出错", e)
             "" // 返回空字符串，让调用方处理
         }
     }
@@ -415,7 +415,7 @@ class ClipboardManager(private val context: Context) {
         recentlySetContentHash = contentHash
         // 设置5秒后过期
         preventLoopExpiry = System.currentTimeMillis() + 5000
-        Log.d(TAG, "标记防循环内容: $contentHash")
+        Logger.d(TAG, "标记防循环内容: $contentHash")
     }
     
     /**
@@ -434,7 +434,7 @@ class ClipboardManager(private val context: Context) {
             clipboardManager.primaryClip
             true
         } catch (e: Exception) {
-            Log.w(TAG, "无剪贴板访问权限", e)
+            Logger.w(TAG, "无剪贴板访问权限", e)
             false
         }
     }
@@ -451,9 +451,9 @@ class ClipboardManager(private val context: Context) {
                 val clip = ClipData.newPlainText("", "")
                 clipboardManager.setPrimaryClip(clip)
             }
-            Log.d(TAG, "清空剪贴板")
+            Logger.d(TAG, "清空剪贴板")
         } catch (e: Exception) {
-            Log.e(TAG, "清空剪贴板时出错", e)
+            Logger.e(TAG, "清空剪贴板时出错", e)
         }
     }
     
@@ -484,7 +484,7 @@ class ClipboardManager(private val context: Context) {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "清理缓存时出错", e)
+            Logger.e(TAG, "清理缓存时出错", e)
         }
     }
 }

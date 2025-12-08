@@ -2,10 +2,10 @@ package com.jacksen168.syncclipboard.data.repository
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.util.Log
 import com.jacksen168.syncclipboard.data.api.GithubApiService
 import com.jacksen168.syncclipboard.data.model.UpdateInfo
 import com.jacksen168.syncclipboard.network.RetrofitClient
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -30,16 +30,16 @@ class UpdateRepository(private val context: Context) {
     suspend fun checkForUpdate(): UpdateInfo = withContext(Dispatchers.IO) {
         try {
             val currentVersion = getCurrentVersion()
-            Log.d(TAG, "当前版本: $currentVersion")
+            Logger.d(TAG, "当前版本: $currentVersion")
             
-            Log.d(TAG, "开始请求Github API...")
+            Logger.d(TAG, "开始请求Github API...")
             val response = githubApi.getLatestRelease()
-            Log.d(TAG, "API响应: 状态码=${response.code()}, 成功=${response.isSuccessful}")
+            Logger.d(TAG, "API响应: 状态码=${response.code()}, 成功=${response.isSuccessful}")
             
             if (response.isSuccessful) {
                 val release = response.body()
                 if (release != null) {
-                    Log.d(TAG, "Github Release: tagName=${release.tagName}, name=${release.name}")
+                    Logger.d(TAG, "Github Release: tagName=${release.tagName}, name=${release.name}")
                     val latestVersion = release.tagName.removePrefix("v")
                     
                     // 查找APK下载链接，确保是签名版本(-signed.apk)
@@ -49,13 +49,13 @@ class UpdateRepository(private val context: Context) {
                     
                     // 记录找到的资产信息
                     release.assets.forEach { asset ->
-                        Log.d(TAG, "找到资产: ${asset.name}, URL: ${asset.downloadUrl}")
+                        Logger.d(TAG, "找到资产: ${asset.name}, URL: ${asset.downloadUrl}")
                     }
                     
                     if (signedApkAsset != null) {
-                        Log.d(TAG, "找到签名APK: ${signedApkAsset.name}")
+                        Logger.d(TAG, "找到签名APK: ${signedApkAsset.name}")
                     } else {
-                        Log.w(TAG, "未找到签名APK (-signed.apk)")
+                        Logger.w(TAG, "未找到签名APK (-signed.apk)")
                     }
                     
                     val downloadUrl = signedApkAsset?.downloadUrl ?: release.htmlUrl
@@ -63,17 +63,17 @@ class UpdateRepository(private val context: Context) {
                     // 只有找到签名APK时才标记为有更新
                     val hasUpdate = if (signedApkAsset != null) {
                         val isNewer = isNewerVersion(latestVersion, currentVersion)
-                        Log.d(TAG, "版本比较结果: 最新版本=$latestVersion, 当前版本=$currentVersion, 是否更新=$isNewer")
+                        Logger.d(TAG, "版本比较结果: 最新版本=$latestVersion, 当前版本=$currentVersion, 是否更新=$isNewer")
                         isNewer
                     } else {
-                        Log.d(TAG, "由于未找到签名APK，不提示更新")
+                        Logger.d(TAG, "由于未找到签名APK，不提示更新")
                         false // 没有签名APK，不提示更新
                     }
                     
                     // 格式化发布日期
                     val releaseDate = formatReleaseDate(release.publishedAt)
                     
-                    Log.d(TAG, "最新版本: $latestVersion, 有更新: $hasUpdate, 下载地址: $downloadUrl")
+                    Logger.d(TAG, "最新版本: $latestVersion, 有更新: $hasUpdate, 下载地址: $downloadUrl")
                     
                     return@withContext UpdateInfo(
                         hasUpdate = hasUpdate,
@@ -85,19 +85,19 @@ class UpdateRepository(private val context: Context) {
                         isPrerelease = release.prerelease
                     )
                 } else {
-                    Log.w(TAG, "Github API返回空数据")
+                    Logger.w(TAG, "Github API返回空数据")
                 }
             } else {
-                Log.w(TAG, "检查更新失败: ${response.code()} ${response.message()}")
+                Logger.w(TAG, "检查更新失败: ${response.code()} ${response.message()}")
                 
                 // 尝试获取错误响应体
                 val errorBody = response.errorBody()?.string()
                 if (!errorBody.isNullOrBlank()) {
-                    Log.w(TAG, "错误响应: $errorBody")
+                    Logger.w(TAG, "错误响应: $errorBody")
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "检查更新时出错", e)
+            Logger.e(TAG, "检查更新时出错", e)
             // 抛出异常，让ViewModel处理
             throw e
         }
@@ -136,7 +136,7 @@ class UpdateRepository(private val context: Context) {
             }
             false
         } catch (e: Exception) {
-            Log.w(TAG, "版本比较失败: $latestVersion vs $currentVersion", e)
+            Logger.w(TAG, "版本比较失败: $latestVersion vs $currentVersion", e)
             false
         }
     }

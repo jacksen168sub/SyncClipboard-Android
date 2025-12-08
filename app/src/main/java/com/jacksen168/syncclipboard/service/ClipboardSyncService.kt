@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Binder
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
 import com.jacksen168.syncclipboard.R
@@ -21,6 +20,7 @@ import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.presentation.MainActivity
 import com.jacksen168.syncclipboard.util.ContentLimiter
+import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.delay
@@ -104,7 +104,7 @@ class ClipboardSyncService : Service() {
     
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "服务创建")
+        Logger.d(TAG, "服务创建")
         
         // 初始化仓库
         settingsRepository = (application as SyncClipboardApplication).settingsRepository
@@ -131,35 +131,37 @@ class ClipboardSyncService : Service() {
             val notification = createNotification()
             startForeground(NOTIFICATION_ID, notification)
         }
+        
+        Logger.d(TAG, "服务初始化完成")
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "服务启动命令: ${intent?.action}")
+        Logger.d(TAG, "服务启动命令: ${intent?.action}")
         
         when (intent?.action) {
             ACTION_STOP_SERVICE -> {
-                Log.d(TAG, "接收到停止服务命令")
+                Logger.d(TAG, "接收到停止服务命令")
                 stopSelf()
                 return START_NOT_STICKY
             }
             ACTION_SYNC_NOW -> {
-                Log.d(TAG, "接收到手动同步命令")
+                Logger.d(TAG, "接收到手动同步命令")
                 performManualSync()
             }
             ACTION_RESTART_SERVICE -> {
-                Log.d(TAG, "接收到重启服务命令")
+                Logger.d(TAG, "接收到重启服务命令")
                 // 重新初始化服务
                 restartService()
             }
             else -> {
-                Log.d(TAG, "服务正常启动")
+                Logger.d(TAG, "服务正常启动")
                 // 确保通知正常显示（异步创建）
                 serviceScope.launch {
                     try {
                         val notification = createNotification()
                         startForeground(NOTIFICATION_ID, notification)
                     } catch (e: Exception) {
-                        Log.e(TAG, "创建前台通知失败", e)
+                        Logger.e(TAG, "创建前台通知失败", e)
                     }
                 }
             }
@@ -174,7 +176,7 @@ class ClipboardSyncService : Service() {
     
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "服务销毁")
+        Logger.d(TAG, "服务销毁")
         
         // 停止剪贴板监听
         clipboardManager.stopListening()
@@ -190,6 +192,8 @@ class ClipboardSyncService : Service() {
         
         // 清理缓存
         clipboardManager.cleanupCache()
+        
+        Logger.d(TAG, "服务清理完成")
     }
     
     /**
@@ -203,7 +207,7 @@ class ClipboardSyncService : Service() {
             clipboardManager.clipboardChangeFlow
                 .filterNotNull()
                 .collect { clipboardItem ->
-                    Log.d(TAG, "检测到剪贴板变化: ${clipboardItem.type}")
+                    Logger.d(TAG, "检测到剪贴板变化: ${clipboardItem.type}")
                     
                     // 保存到本地数据库（明确标记为本地来源）
                     val savedItem = clipboardRepository.saveClipboardItem(
@@ -259,9 +263,9 @@ class ClipboardSyncService : Service() {
                     performPeriodicSync()
                 }
             }
-            Log.d(TAG, "启用自动同步，间隔: ${interval}ms")
+            Logger.d(TAG, "启用自动同步，间隔: ${interval}ms")
         } else {
-            Log.d(TAG, "禁用自动同步")
+            Logger.d(TAG, "禁用自动同步")
         }
     }
     
@@ -306,7 +310,7 @@ class ClipboardSyncService : Service() {
                         updateClipboardFromServer(item)
                         showSyncNotification("已从服务器同步: ${item.uiContent.take(20)}...")
                     } else {
-                        Log.d(TAG, "服务器内容与当前剪贴板相同，跳过更新")
+                        Logger.d(TAG, "服务器内容与当前剪贴板相同，跳过更新")
                     }
                     
                     // 向UI发送刷新信号，通知页面去重已完成
@@ -316,12 +320,12 @@ class ClipboardSyncService : Service() {
                     sendBroadcast(Intent("com.jacksen168.syncclipboard.REFRESH_LIST"))
                 }
             }.onFailure { error ->
-                Log.w(TAG, "定期同步失败", error)
+                Logger.w(TAG, "定期同步失败", error)
             }
             
             _syncStatus.value = SyncStatus.CONNECTED
         } catch (e: Exception) {
-            Log.e(TAG, "定期同步出错", e)
+            Logger.e(TAG, "定期同步出错", e)
             _syncStatus.value = SyncStatus.ERROR
         }
     }
@@ -333,7 +337,7 @@ class ClipboardSyncService : Service() {
         try {
             // 检查是否在锁屏状态
             if (isScreenLocked) {
-                Log.d(TAG, "设备处于锁屏状态，缓存内容等待解锁后处理")
+                Logger.d(TAG, "设备处于锁屏状态，缓存内容等待解锁后处理")
                 pendingClipboardItem = item
                 return
             }
@@ -342,9 +346,9 @@ class ClipboardSyncService : Service() {
             if ((item.type == ClipboardType.FILE) &&
                 item.source == ClipboardSource.REMOTE) {
                 val settings = settingsRepository.appSettingsFlow.first()
-                Log.d(TAG, "检查自动保存设置: ${settings.autoSaveFiles}")
+                Logger.d(TAG, "检查自动保存设置: ${settings.autoSaveFiles}")
                 if (settings.autoSaveFiles) {
-                    Log.d(TAG, "自动保存文件: ${item.fileName}")
+                    Logger.d(TAG, "自动保存文件: ${item.fileName}")
                     autoSaveFile(item)
                 }
             }
@@ -353,7 +357,7 @@ class ClipboardSyncService : Service() {
             writeToClipboard(item)
             
         } catch (e: Exception) {
-            Log.e(TAG, "更新剪贴板时出错", e)
+            Logger.e(TAG, "更新剪贴板时出错", e)
         }
     }
     
@@ -362,7 +366,7 @@ class ClipboardSyncService : Service() {
      */
     private suspend fun autoSaveFile(item: ClipboardItem) {
         try {
-            Log.d(TAG, "开始自动保存文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
+            Logger.d(TAG, "开始自动保存文件: id=${item.id}, type=${item.type}, fileName=${item.fileName}")
 
             val settings = settingsRepository.appSettingsFlow.first()
             
@@ -372,29 +376,29 @@ class ClipboardSyncService : Service() {
             } else {
                 // 使用默认下载目录
                 val defaultDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath
-                Log.d(TAG, "使用默认下载目录: $defaultDir")
+                Logger.d(TAG, "使用默认下载目录: $defaultDir")
                 defaultDir
             }
             
-            Log.d(TAG, "自动保存位置: $downloadLocation")
+            Logger.d(TAG, "自动保存位置: $downloadLocation")
             
             // 检查URI权限（如果是URI格式）
             if (downloadLocation.startsWith("content://")) {
                 if (!clipboardRepository.checkAndRestoreUriPermission(downloadLocation)) {
-                    Log.w(TAG, "URI权限无效，使用默认下载目录")
+                    Logger.w(TAG, "URI权限无效，使用默认下载目录")
                     // 使用默认下载目录作为回退方案
                     val defaultDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath
                     val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
                     val targetPath = "$defaultDir/$fileName"
-                    Log.d(TAG, "使用默认下载目录: $targetPath")
+                    Logger.d(TAG, "使用默认下载目录: $targetPath")
                     
                     // 调用Repository下载文件
                     val result = clipboardRepository.downloadFile(item, targetPath)
                     result.onSuccess { path -> 
-                        Log.d(TAG, "文件自动保存成功: $path")
+                        Logger.d(TAG, "文件自动保存成功: $path")
                         showSyncNotification("文件已自动保存到: ${fileName}")
                     }.onFailure { e -> 
-                        Log.e(TAG, "文件自动保存失败", e)
+                        Logger.e(TAG, "文件自动保存失败", e)
                         showSyncNotification("文件自动保存失败: ${e.message}")
                     }
                     return
@@ -405,30 +409,30 @@ class ClipboardSyncService : Service() {
             val fileName = item.fileName ?: "clipboard_file_${System.currentTimeMillis()}"
             val targetPath = if (downloadLocation.startsWith("content://")) {
                 // 如果是URI格式，直接使用
-                Log.d(TAG, "使用URI格式下载位置: $downloadLocation")
+                Logger.d(TAG, "使用URI格式下载位置: $downloadLocation")
                 downloadLocation
             } else {
                 // 如果是普通路径格式，构造完整路径
                 val fullPath = "$downloadLocation/$fileName"
-                Log.d(TAG, "使用文件路径下载位置: $fullPath")
+                Logger.d(TAG, "使用文件路径下载位置: $fullPath")
                 fullPath
             }
             
-            Log.d(TAG, "自动保存目标路径: $targetPath")
+            Logger.d(TAG, "自动保存目标路径: $targetPath")
             
             // 调用Repository下载文件
-            Log.d(TAG, "调用Repository自动保存文件")
+            Logger.d(TAG, "调用Repository自动保存文件")
             val result = clipboardRepository.downloadFile(item, targetPath)
             result.onSuccess { path -> 
-                Log.d(TAG, "文件自动保存成功: $path")
+                Logger.d(TAG, "文件自动保存成功: $path")
                 showSyncNotification("文件已自动保存到: ${fileName}")
             }.onFailure { e -> 
-                Log.e(TAG, "文件自动保存失败", e)
+                Logger.e(TAG, "文件自动保存失败", e)
                 showSyncNotification("文件自动保存失败: ${e.message}")
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "自动保存文件时出错", e)
+            Logger.e(TAG, "自动保存文件时出错", e)
             showSyncNotification("文件自动保存出错: ${e.message}")
         }
     }
@@ -445,7 +449,7 @@ class ClipboardSyncService : Service() {
             when (item.type) {
                 ClipboardType.TEXT -> {
                     clipboardManager.setClipboardText(item.content)
-                    Log.d(TAG, "已将文本内容写入剪贴板: ${item.uiContent.take(20)}...")
+                    Logger.d(TAG, "已将文本内容写入剪贴板: ${item.uiContent.take(20)}...")
                 }
                 ClipboardType.IMAGE -> {
                     // 图片类型：如果有本地路径，则设置图片到剪贴板
@@ -458,15 +462,15 @@ class ClipboardSyncService : Service() {
                                 file
                             )
                             clipboardManager.setClipboardImage(uri)
-                            Log.d(TAG, "已将图片内容写入剪贴板: $path")
+                            Logger.d(TAG, "已将图片内容写入剪贴板: $path")
                         } else {
-                            Log.w(TAG, "图片文件不存在: $path")
+                            Logger.w(TAG, "图片文件不存在: $path")
                         }
                     }
                 }
                 ClipboardType.FILE -> {
                     // 文件类型的处理
-                    Log.d(TAG, "文件类型不写入剪贴板")
+                    Logger.d(TAG, "文件类型不写入剪贴板")
                     // 清理剪贴板，防止文本内容顶替服务端文件
                     clipboardManager.clearClipboard()
                 }
@@ -477,7 +481,7 @@ class ClipboardSyncService : Service() {
             clipboardManager.startListening()
             
         } catch (e: Exception) {
-            Log.e(TAG, "写入剪贴板时出错", e)
+            Logger.e(TAG, "写入剪贴板时出错", e)
             // 确保重新开始监听
             clipboardManager.startListening()
         }
@@ -528,7 +532,7 @@ class ClipboardSyncService : Service() {
                 showSyncNotification("手动同步完成")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "手动同步出错", e)
+                Logger.e(TAG, "手动同步出错", e)
                 _syncStatus.value = SyncStatus.ERROR
                 showSyncNotification("同步失败: ${e.message}")
             }
@@ -545,16 +549,16 @@ class ClipboardSyncService : Service() {
             val result = clipboardRepository.uploadToServer(item)
             result.onSuccess {
                 _syncStatus.value = SyncStatus.CONNECTED
-                Log.d(TAG, "同步成功: ${item.type}")
+                Logger.d(TAG, "同步成功: ${item.type}")
                 
                 // 同步成功后发送刷新广播，确保UI立即反映去重结果
                 sendBroadcast(Intent("com.jacksen168.syncclipboard.REFRESH_LIST"))
             }.onFailure { error ->
                 _syncStatus.value = SyncStatus.ERROR
-                Log.w(TAG, "同步失败", error)
+                Logger.w(TAG, "同步失败", error)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "同步出错", e)
+            Logger.e(TAG, "同步出错", e)
             _syncStatus.value = SyncStatus.ERROR
         }
     }
@@ -654,7 +658,7 @@ class ClipboardSyncService : Service() {
             val notification = createNotification(showPersistent)
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.notify(NOTIFICATION_ID, notification)
-            Log.d(TAG, "常驻通知设置已更新: $showPersistent")
+            Logger.d(TAG, "常驻通知设置已更新: $showPersistent")
         }
     }
     
@@ -690,7 +694,7 @@ class ClipboardSyncService : Service() {
             
             notificationManager.notify(NOTIFICATION_ID + 1, notification)
         } catch (e: Exception) {
-            Log.e(TAG, "显示同步通知时出错", e)
+            Logger.e(TAG, "显示同步通知时出错", e)
         }
     }
     
@@ -713,7 +717,7 @@ class ClipboardSyncService : Service() {
      */
     private fun restartService() {
         try {
-            Log.d(TAG, "正在重启服务...")
+            Logger.d(TAG, "正在重启服务...")
             
             // 停止当前监听
             clipboardManager.stopListening()
@@ -728,9 +732,9 @@ class ClipboardSyncService : Service() {
             // 更新通知
             updateNotification()
             
-            Log.d(TAG, "服务重启完成")
+            Logger.d(TAG, "服务重启完成")
         } catch (e: Exception) {
-            Log.e(TAG, "重启服务失败", e)
+            Logger.e(TAG, "重启服务失败", e)
         }
     }
     
@@ -741,9 +745,9 @@ class ClipboardSyncService : Service() {
         try {
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
             isScreenLocked = keyguardManager.isKeyguardLocked
-            Log.d(TAG, "初始屏幕状态: ${if (isScreenLocked) "锁定" else "解锁"}")
+            Logger.d(TAG, "初始屏幕状态: ${if (isScreenLocked) "锁定" else "解锁"}")
         } catch (e: Exception) {
-            Log.e(TAG, "获取屏幕状态失败", e)
+            Logger.e(TAG, "获取屏幕状态失败", e)
             isScreenLocked = false
         }
     }
@@ -757,15 +761,15 @@ class ClipboardSyncService : Service() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     when (intent?.action) {
                         Intent.ACTION_SCREEN_OFF -> {
-                            Log.d(TAG, "屏幕关闭")
+                            Logger.d(TAG, "屏幕关闭")
                             isScreenLocked = true
                         }
                         Intent.ACTION_SCREEN_ON -> {
-                            Log.d(TAG, "屏幕点亮")
+                            Logger.d(TAG, "屏幕点亮")
                             // 屏幕点亮不一定解锁，需要等待USER_PRESENT
                         }
                         Intent.ACTION_USER_PRESENT -> {
-                            Log.d(TAG, "用户解锁")
+                            Logger.d(TAG, "用户解锁")
                             isScreenLocked = false
                             // 处理解锁后的逻辑
                             handleScreenUnlocked()
@@ -781,9 +785,9 @@ class ClipboardSyncService : Service() {
             }
             
             registerReceiver(screenStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            Log.d(TAG, "屏幕状态监听已注册")
+            Logger.d(TAG, "屏幕状态监听已注册")
         } catch (e: Exception) {
-            Log.e(TAG, "注册屏幕状态监听失败", e)
+            Logger.e(TAG, "注册屏幕状态监听失败", e)
         }
     }
     
@@ -795,10 +799,10 @@ class ClipboardSyncService : Service() {
             screenStateReceiver?.let {
                 unregisterReceiver(it)
                 screenStateReceiver = null
-                Log.d(TAG, "屏幕状态监听已注销")
+                Logger.d(TAG, "屏幕状态监听已注销")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "注销屏幕状态监听失败", e)
+            Logger.e(TAG, "注销屏幕状态监听失败", e)
         }
     }
     
@@ -811,20 +815,20 @@ class ClipboardSyncService : Service() {
                 // 检查解锁后自动重新写入设置
                 val appSettings = settingsRepository.appSettingsFlow.first()
                 if (!appSettings.rewriteAfterUnlock) {
-                    Log.d(TAG, "解锁后自动重新写入功能已禁用")
+                    Logger.d(TAG, "解锁后自动重新写入功能已禁用")
                     pendingClipboardItem = null // 清空缓存
                     return@launch
                 }
                 
                 // 如果有缓存的剪贴板内容，现在写入
                 pendingClipboardItem?.let { item ->
-                    Log.d(TAG, "解锁后处理缓存的剪贴板内容")
+                    Logger.d(TAG, "解锁后处理缓存的剪贴板内容")
                     writeToClipboard(item)
                     pendingClipboardItem = null // 清空缓存
                     showSyncNotification("解锁后已自动写入: ${item.uiContent.take(20)}...")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "处理解锁后逻辑时出错", e)
+                Logger.e(TAG, "处理解锁后逻辑时出错", e)
             }
         }
     }
@@ -838,7 +842,7 @@ class ClipboardSyncService : Service() {
                 override fun onReceive(context: Context, intent: Intent) {
                     when (intent.action) {
                         "com.jacksen168.syncclipboard.APP_FOREGROUND" -> {
-                            Log.d(TAG, "接收到应用前台激活广播")
+                            Logger.d(TAG, "接收到应用前台激活广播")
                             handleAppForeground()
                         }
                     }
@@ -850,9 +854,9 @@ class ClipboardSyncService : Service() {
             }
             
             registerReceiver(appLifecycleReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            Log.d(TAG, "应用生命周期监听已注册")
+            Logger.d(TAG, "应用生命周期监听已注册")
         } catch (e: Exception) {
-            Log.e(TAG, "注册应用生命周期监听失败", e)
+            Logger.e(TAG, "注册应用生命周期监听失败", e)
         }
     }
     
@@ -864,10 +868,10 @@ class ClipboardSyncService : Service() {
             appLifecycleReceiver?.let {
                 unregisterReceiver(it)
                 appLifecycleReceiver = null
-                Log.d(TAG, "应用生命周期监听已注销")
+                Logger.d(TAG, "应用生命周期监听已注销")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "注销应用生命周期监听失败", e)
+            Logger.e(TAG, "注销应用生命周期监听失败", e)
         }
     }
     
@@ -877,18 +881,18 @@ class ClipboardSyncService : Service() {
     private fun handleAppForeground() {
         serviceScope.launch {
             try {
-                Log.d(TAG, "应用从后台返回前台，检查剪贴板内容")
+                Logger.d(TAG, "应用从后台返回前台，检查剪贴板内容")
                 
                 // 检查是否有剪贴板访问权限
                 if (!clipboardManager.hasClipboardAccess()) {
-                    Log.w(TAG, "无剪贴板访问权限")
+                    Logger.w(TAG, "无剪贴板访问权限")
                     return@launch
                 }
                 
                 // 检查是否启用了自动同步
                 val appSettings = settingsRepository.appSettingsFlow.first()
                 if (!appSettings.autoSync) {
-                    Log.d(TAG, "自动同步已禁用，跳过剪贴板检查")
+                    Logger.d(TAG, "自动同步已禁用，跳过剪贴板检查")
                     return@launch
                 }
                 
@@ -900,16 +904,16 @@ class ClipboardSyncService : Service() {
                 for (i in 1..3) {
                     currentClipboardItem = clipboardManager.getCurrentClipboardContent()
                     if (currentClipboardItem != null) {
-                        Log.d(TAG, "第${i}次尝试读取剪贴板内容成功")
+                        Logger.d(TAG, "第${i}次尝试读取剪贴板内容成功")
                         break
                     } else {
-                        Log.d(TAG, "第${i}次尝试读取剪贴板内容为空，等待后重试")
+                        Logger.d(TAG, "第${i}次尝试读取剪贴板内容为空，等待后重试")
                         delay(200) // 等待200ms后重试
                     }
                 }
                 
                 if (currentClipboardItem != null) {
-                    Log.d(TAG, "检测到前台返回时的剪贴板内容: ${currentClipboardItem.type}, ${currentClipboardItem.content.take(50)}...")
+                    Logger.d(TAG, "检测到前台返回时的剪贴板内容: ${currentClipboardItem.type}, ${currentClipboardItem.content.take(50)}...")
                     
                     // 生成当前剪贴板内容的哈希值
                     val currentContentHash = ClipboardItem.generateContentHash(
@@ -926,7 +930,7 @@ class ClipboardSyncService : Service() {
                     }
                     
                     if (isDuplicate) {
-                        Log.d(TAG, "剪贴板内容与最近保存的本地内容相同，跳过重复处理")
+                        Logger.d(TAG, "剪贴板内容与最近保存的本地内容相同，跳过重复处理")
                         return@launch
                     }
                     
@@ -943,10 +947,10 @@ class ClipboardSyncService : Service() {
                     // 触发同步
                     syncToServer(savedItem)
                 } else {
-                    Log.d(TAG, "剪贴板为空")
+                    Logger.d(TAG, "剪贴板为空")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "处理应用前台激活时出错", e)
+                Logger.e(TAG, "处理应用前台激活时出错", e)
             }
         }
     }

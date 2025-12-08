@@ -17,6 +17,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import javax.net.ssl.HostnameVerifier
+import com.jacksen168.syncclipboard.util.Logger
 
 /**
  * 网络客户端工厂类
@@ -161,7 +162,7 @@ object ApiClient {
             builder.hostnameVerifier(HostnameVerifier { _, _ -> true })
             
         } catch (e: Exception) {
-            android.util.Log.e("ApiClient", "配置不安全SSL失败", e)
+            Logger.e("ApiClient", "配置不安全SSL失败", e)
             // 如果配置失败，继续使用默认的SSL配置
         }
     }
