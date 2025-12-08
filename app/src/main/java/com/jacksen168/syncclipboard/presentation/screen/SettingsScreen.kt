@@ -556,7 +556,7 @@ fun SyncSettingsCard(
                 OutlinedTextField(
                     value = tempHistoryCount,
                     onValueChange = { tempHistoryCount = it },
-                    label = { Text(stringResource(R.string.display_count_items)) },
+                    label = { Text(stringResource(R.string.display_clipboard_history_count)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
@@ -999,6 +999,60 @@ fun MiscellaneousCard(
                     text = stringResource(R.string.miscellaneous),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Medium
+                )
+            }
+            
+            // 日志显示数量
+            var showLogDisplayCountDialog by remember { mutableStateOf(false) }
+            var tempLogDisplayCount by remember { mutableStateOf(viewModel.appSettings.value.logDisplayCount) }
+            
+            SettingItem(
+                title = stringResource(R.string.log_display_count),
+                description = stringResource(R.string.log_display_count_desc),
+                icon = Icons.Default.List,
+                trailing = {
+                    TextButton(
+                        onClick = { 
+                            tempLogDisplayCount = viewModel.appSettings.value.logDisplayCount
+                            showLogDisplayCountDialog = true 
+                        }
+                    ) {
+                        Text(if (viewModel.appSettings.value.logDisplayCount == -1) "全部" else "${viewModel.appSettings.value.logDisplayCount}条")
+                    }
+                }
+            )
+            
+            // 日志显示数量对话框
+            if (showLogDisplayCountDialog) {
+                AlertDialog(
+                    onDismissRequest = { showLogDisplayCountDialog = false },
+                    title = { Text(stringResource(R.string.set_log_display_count)) },
+                    text = {
+                        OutlinedTextField(
+                            value = tempLogDisplayCount.toString(),
+                            onValueChange = { tempLogDisplayCount = it.toIntOrNull() ?: tempLogDisplayCount },
+                            label = { Text(stringResource(R.string.display_log_count)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                if (tempLogDisplayCount == -1 || (tempLogDisplayCount > 0 && tempLogDisplayCount <= 1000)) {
+                                    viewModel.updateLogDisplayCount(tempLogDisplayCount)
+                                    showLogDisplayCountDialog = false
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.ok))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showLogDisplayCountDialog = false }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    }
                 )
             }
             

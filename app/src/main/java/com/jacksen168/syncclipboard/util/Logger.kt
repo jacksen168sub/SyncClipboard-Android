@@ -229,6 +229,34 @@ class Logger private constructor() {
         }
     }
     
+    /**
+     * 获取所有日志
+     */
+    fun getAllLogs(): List<String> {
+        return LOCK.withLock {
+            try {
+                val files = logDir.listFiles() ?: return@withLock emptyList()
+                
+                // 按修改时间排序，最新的在前面
+                val sortedFiles = files.filter { it.name.startsWith("log_") }
+                    .sortedByDescending { it.lastModified() }
+                
+                val lines = mutableListOf<String>()
+                
+                for (file in sortedFiles) {
+                    file.readLines().reversed().forEach { line ->
+                        lines.add(line)
+                    }
+                }
+                
+                lines.reversed() // 返回按时间顺序排列的日志
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to read all logs", e)
+                emptyList()
+            }
+        }
+    }
+    
     private fun priorityToString(priority: Int): String {
         return when (priority) {
             VERBOSE -> "V"

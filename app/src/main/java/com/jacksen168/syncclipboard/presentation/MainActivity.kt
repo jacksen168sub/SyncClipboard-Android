@@ -145,7 +145,8 @@ class MainActivity : ComponentActivity() {
                         onCreateLogFile = { defaultFileName ->
                             // 启动文件创建器，让用户选择保存位置
                             createLogFileLauncher.launch(defaultFileName)
-                        }
+                        },
+                        context = this@MainActivity
                     )
                 }
                 

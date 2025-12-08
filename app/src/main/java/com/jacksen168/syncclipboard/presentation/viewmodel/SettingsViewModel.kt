@@ -353,6 +353,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * 更新日志显示数量
+     */
+    fun updateLogDisplayCount(count: Int) {
+        _appSettings.value = _appSettings.value.copy(logDisplayCount = count)
+        saveAppSettings()
+    }
+    
+    /**
      * 更新文件自动保存开关
      */
     fun updateAutoSaveFiles(enabled: Boolean) {

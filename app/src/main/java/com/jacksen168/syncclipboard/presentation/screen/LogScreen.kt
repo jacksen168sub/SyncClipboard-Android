@@ -29,7 +29,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jacksen168.syncclipboard.R
+import com.jacksen168.syncclipboard.data.repository.SettingsRepository
 import com.jacksen168.syncclipboard.util.Logger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -92,7 +94,8 @@ fun parseLogLine(logLine: String): LogEntry? {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LogScreen(
-    onCreateLogFile: ((String) -> Unit)? = null
+    onCreateLogFile: ((String) -> Unit)? = null,
+    settingsRepository: SettingsRepository
 ) {
     val context = LocalContext.current
     val logger = Logger.getInstance(context)
@@ -100,6 +103,14 @@ fun LogScreen(
     var autoRefresh by remember { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    
+    // 获取日志显示数量设置
+    var logDisplayCount by remember { mutableStateOf(-1) }
+    LaunchedEffect(Unit) {
+        settingsRepository.appSettingsFlow.collect { settings ->
+            logDisplayCount = settings.logDisplayCount
+        }
+    }
     
     // 日志等级筛选状态
     var verboseFilter by remember { mutableStateOf(true) }
@@ -118,11 +129,11 @@ fun LogScreen(
     }
     
     // 定期刷新日志
-    LaunchedEffect(autoRefresh) {
+    LaunchedEffect(autoRefresh, logDisplayCount) {
         if (autoRefresh) {
             while (true) {
                 delay(1000) // 每秒刷新一次
-                val rawLogs = logger.getRecentLogs(1000)
+                val rawLogs = if (logDisplayCount == -1) logger.getAllLogs() else logger.getRecentLogs(logDisplayCount)
                 logEntries = rawLogs.mapNotNull { parseLogLine(it) }
                 
                 // 自动滚动到底部
