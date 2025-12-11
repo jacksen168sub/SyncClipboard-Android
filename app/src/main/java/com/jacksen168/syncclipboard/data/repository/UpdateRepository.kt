@@ -133,10 +133,11 @@ class UpdateRepository(private val context: Context) {
      * 比较版本号，判断是否有新版本
      */
     private fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
-        // Logger.d(TAG, "比较版本号: latest=$latestVersion, current=$currentVersion")
+         // Logger.d(TAG, "比较版本号: latest=$latestVersion, current=$currentVersion")
         return try {
             val latest = parseVersion(latestVersion)
             val current = parseVersion(currentVersion)
+            // Logger.d(TAG, "比较版本号(parsed): latest=$latest, current=$current")
             
             for (i in 0 until maxOf(latest.size, current.size)) {
                 val latestPart = latest.getOrNull(i) ?: 0
@@ -144,15 +145,18 @@ class UpdateRepository(private val context: Context) {
                 
                 when {
                     latestPart > currentPart -> {
-                        // Logger.d(TAG, "发现新版本: $latestPart > $currentPart")
+                          // Logger.d(TAG, "发现新版本: $latestPart > $currentPart")
                         return true
                     }
                     latestPart < currentPart -> {
-                        // Logger.d(TAG, "当前版本较新: $latestPart < $currentPart")
+                         // Logger.d(TAG, "当前版本较新: $latestPart < $currentPart")
                         return false
                     }
                 }
             }
+            // 数字比较版本相同,判断当前已安装版本是否是非正式版(带"-"): true-需要更新,false-不需要更新
+            return currentVersion.contains("-")
+
             // Logger.d(TAG, "版本相同")
             false
         } catch (e: Exception) {
@@ -160,7 +164,7 @@ class UpdateRepository(private val context: Context) {
             false
         }
     }
-    
+
     /**
      * 解析版本号为数字列表
      */
