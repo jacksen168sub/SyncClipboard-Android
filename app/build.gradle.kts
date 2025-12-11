@@ -23,8 +23,8 @@ android {
         applicationId = "com.jacksen168.syncclipboard"
         minSdk = 28
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.4.0-beta"
+        versionCode = 10
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
