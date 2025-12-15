@@ -6,7 +6,7 @@
 
 ### 必须的工具
 - **Android Studio**: 用最新版就行，不用太纠结版本号
-- **JDK**: Java 11+
+- **JDK**: Java 17+
 - **Android SDK**: API 28+
 
 ### 推荐配置
