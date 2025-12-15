@@ -1,27 +1,31 @@
 # 📋 SyncClipboard Android
 
-> 基于SyncClipboard api开发的安卓客户端,使用AI coding娱乐的副产物,不过还是有在维护的,自己有在使用
+> 基于SyncClipboard api开发的安卓客户端,使用AI coding娱乐的副产物,不过还是有在维护的,自己也有在使用
 
 使用[SyncClipboard](https://github.com/Jeric-X/SyncClipboard/) 作为服务端
 
-<img src="https://github.com/user-attachments/assets/80ef734b-5df7-4751-aa8a-a8428d3b4027" width="185px">
-<img src="https://github.com/user-attachments/assets/f271519b-9cde-4887-9efc-c4abd7d39619" width="185px">
-<img src="https://github.com/user-attachments/assets/572aeb8e-14db-42d1-8d85-60cc04ac756d" width="185px">
-<img src="https://github.com/user-attachments/assets/ab332cec-89a4-4628-a82e-46680eaf7b6f" width="185px">
+<img src="https://github.com/user-attachments/assets/ff2638b2-8ce2-4c9e-ad40-a1c0074901ed" width="250px">
+<img src="https://github.com/user-attachments/assets/b73821a1-bad2-4d82-8cec-3cf0bd220041" width="250px">
+<img src="https://github.com/user-attachments/assets/b5ec42ba-5a29-430d-8cc9-1bd8f197be04" width="250px">
+<img src="https://github.com/user-attachments/assets/7cf797f4-836d-40d7-bc39-13ce76c8a585" width="250px">
+<img src="https://github.com/user-attachments/assets/c6fdef0f-b788-44bb-8325-e86843a3e1fd" width="250px">
+<img src="https://github.com/user-attachments/assets/09d545a1-2476-45ab-80bf-574c0746b5ba" width="250px">
 
 
 ## ✨ 主要功能
 
 ### 🔄 剪贴板同步
 - **剪贴板实时同步**
-- **支持文本和图片**
-- **可后台自启**
+- **支持文本、图片和文件**
+- **可后台自启常驻、多任务页隐藏**
+- **支持日志功能**
 
 ## 🚀 快速开始
 
 ### 第一次使用
 
-1. **安装应用**: [发行版](https://github.com/jacksen168sub/SyncClipboard-Android/releases) 下载APK直接安装
+1. **安装应用**: [发行版](https://github.com/jacksen168sub/SyncClipboard-Android/releases) 下载APK直接安装(需下载```-signed.apk```结尾的已签名安装包)
+
 3. **授权权限**: 跟着提示给权限就行
 2. **配置服务器**: 填入你的SyncClipboard服务器地址
 4. **开始同步**: 点击右下角开始按钮，然后试试复制点什么
@@ -120,7 +124,7 @@ app/src/main/java/com/jacksen168/syncclipboard/
 
 ### 开发环境
 - Android Studio最新版
-- JDK 11+
+- JDK 17+
 - 一颗想让同步更方便的心❤️
 
 ## 🤝 协助开发:
