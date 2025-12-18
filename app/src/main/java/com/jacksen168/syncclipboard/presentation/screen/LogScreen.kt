@@ -55,8 +55,18 @@ data class LogEntry(
     val level: LogLevel,
     val thread: String,
     val tag: String,
-    val message: String
+    val message: String,
+    val fullMessage: String = message
 )
+
+/**
+ * 检查是否是新的日志条目开始行
+ */
+fun isLogStartLine(line: String): Boolean {
+    // 检查是否符合标准日志格式: [时间] [等级] [线程] [标签] 消息
+    val regex = Regex("""^\[(.*?)\] \[([VDIWE])\] \[(.*?)\] \[(.*?)\] (.*)$""")
+    return regex.matches(line)
+}
 
 /**
  * 解析日志行
@@ -86,6 +96,54 @@ fun parseLogLine(logLine: String): LogEntry? {
             message = logLine
         )
     }
+}
+
+/**
+ * 解析多行日志
+ */
+fun parseLogLines(logLines: List<String>): List<LogEntry> {
+    val entries = mutableListOf<LogEntry>()
+    var currentEntry: LogEntry? = null
+    val fullMessage = StringBuilder()
+    
+    logLines.forEach { line ->
+        if (isLogStartLine(line)) {
+            // 如果存在当前条目，将其添加到列表中
+            currentEntry?.let { 
+                entries.add(it.copy(fullMessage = fullMessage.toString().trim()))
+            }
+            
+            // 开始新的日志条目
+            currentEntry = parseLogLine(line)
+            fullMessage.clear()
+            currentEntry?.let { 
+                fullMessage.append(it.message)
+            }
+        } else {
+            // 这是前一条日志的延续
+            if (fullMessage.isNotEmpty()) {
+                fullMessage.append("\n").append(line)
+            } else {
+                // 如果没有当前条目但有行内容(截取的日志不完整,缺少日志头),创建一个默认条目
+                // if (currentEntry == null) {
+                //     currentEntry = LogEntry(
+                //         timestamp = "",
+                //         level = LogLevel.DEBUG,
+                //         thread = "",
+                //         tag = "",
+                //         message = line
+                //     )
+                //     fullMessage.append(line)
+                // }
+            }
+        }
+    }
+    
+    currentEntry?.let { 
+        entries.add(it.copy(fullMessage = fullMessage.toString().trim()))
+    }
+    
+    return entries
 }
 
 /**
@@ -134,7 +192,7 @@ fun LogScreen(
             while (true) {
                 delay(1000) // 每秒刷新一次
                 val rawLogs = if (logDisplayCount == -1) logger.getAllLogs() else logger.getRecentLogs(logDisplayCount)
-                logEntries = rawLogs.mapNotNull { parseLogLine(it) }
+                logEntries = parseLogLines(rawLogs)
                 
                 // 自动滚动到底部
                 if (logEntries.isNotEmpty()) {
@@ -489,7 +547,7 @@ fun LogEntryItem(entry: LogEntry) {
                 
                 // 日志消息（最多5行）
                 Text(
-                    text = entry.message,
+                    text = entry.fullMessage,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 4.dp),
@@ -498,7 +556,7 @@ fun LogEntryItem(entry: LogEntry) {
                         fontSize = 12.sp
                     ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 5,
+                    maxLines = 50,
                     overflow = TextOverflow.Ellipsis
                 )
             }
