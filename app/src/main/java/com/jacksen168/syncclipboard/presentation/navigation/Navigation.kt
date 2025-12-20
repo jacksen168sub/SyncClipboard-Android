@@ -15,9 +15,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.jacksen168.syncclipboard.R
 import com.jacksen168.syncclipboard.presentation.screen.HomeScreen
-import com.jacksen168.syncclipboard.presentation.screen.LogScreen // 添加日志页面导入
+import com.jacksen168.syncclipboard.presentation.screen.LogScreen
 import com.jacksen168.syncclipboard.presentation.screen.SettingsScreen
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
+import com.jacksen168.syncclipboard.presentation.theme.SelectedNavItemColor
 import android.content.Context
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -26,7 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  */
 sealed class Screen(val route: String, val titleResId: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Home : Screen("home", R.string.home, Icons.Filled.Home)
-    object Logs : Screen("logs", R.string.logs, Icons.Filled.List) // 添加日志页面路由
+    object Logs : Screen("logs", R.string.logs, Icons.Filled.List)
     object Settings : Screen("settings", R.string.navigation_settings, Icons.Filled.Settings)
 }
 
@@ -44,13 +45,15 @@ fun SyncClipboardNavigation(
     
     val items = listOf(
         Screen.Home,
-        Screen.Logs, // 添加日志页面到导航项
+        Screen.Logs,
         Screen.Settings
     )
     
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 
@@ -78,7 +81,10 @@ fun SyncClipboardNavigation(
                                 // Restore state when reselecting a previously selected item
                                 restoreState = true
                             }
-                        }
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = SelectedNavItemColor,
+                        )
                     )
                 }
             }
@@ -92,7 +98,7 @@ fun SyncClipboardNavigation(
             composable(Screen.Home.route) {
                 HomeScreen()
             }
-            composable(Screen.Logs.route) { // 添加日志页面路由
+            composable(Screen.Logs.route) {
                 val settingsRepository = SettingsRepository(context)
                 LogScreen(
                     onCreateLogFile = onCreateLogFile,
