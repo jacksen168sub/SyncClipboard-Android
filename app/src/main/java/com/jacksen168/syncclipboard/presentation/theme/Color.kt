@@ -38,6 +38,9 @@ val Neutral900 = Color(0xFF121316)
 val Error500 = Color(0xFFBA1A1A)
 val Error300 = Color(0xFFFFB4AB)
 
+// 自定义颜色
+val SelectedNavItemColor = Color(0xC6A5D6A7) // 导航栏选中项背景色
+
 // 兼容的颜色方案，避免使用新的Material 3属性
 private val LightColorScheme = lightColorScheme(
     primary = Primary500,
