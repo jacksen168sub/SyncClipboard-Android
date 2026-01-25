@@ -244,8 +244,34 @@ class ClipboardSyncService : Service() {
                 // 更新自动同步
                 updateAutoSync(appSettings.autoSync, appSettings.syncInterval)
                 
-                // 更新常驻通知
-                updatePersistentNotification(appSettings.showNotifications)
+                // 更新前台服务状态
+                updateForegroundServiceStatus(appSettings.showNotifications)
+            }
+        }
+    }
+    
+    /**
+     * 更新前台服务状态
+     */
+    private fun updateForegroundServiceStatus(showNotification: Boolean) {
+        if (showNotification) {
+            // 启动前台服务，显示通知
+            serviceScope.launch {
+                try {
+                    val notification = createNotification()
+                    startForeground(NOTIFICATION_ID, notification)
+                    Logger.d(TAG, "前台服务已启动，显示通知")
+                } catch (e: Exception) {
+                    Logger.e(TAG, "启动前台服务失败", e)
+                }
+            }
+        } else {
+            // 停止前台服务，移除通知
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                Logger.d(TAG, "前台服务已停止，通知已移除")
+            } catch (e: Exception) {
+                Logger.e(TAG, "停止前台服务失败", e)
             }
         }
     }
@@ -566,11 +592,7 @@ class ClipboardSyncService : Service() {
     /**
      * 创建前台通知
      */
-    private suspend fun createNotification(showPersistent: Boolean = true): Notification {
-        // 获取前台服务保活设置
-        val appSettings = settingsRepository.appSettingsFlow.first()
-        val keepaliveEnabled = appSettings.foregroundServiceKeepalive
-        
+    private suspend fun createNotification(): Notification {
         // 点击通知打开应用的意图
         val mainIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -581,60 +603,26 @@ class ClipboardSyncService : Service() {
         
         val builder = NotificationCompat.Builder(this, SyncClipboardApplication.CHANNEL_ID_SYNC_SERVICE)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(
-                when {
-                    !showPersistent -> "同步服务已禁用通知(重启生效)"
-                    keepaliveEnabled -> "剪贴板同步服务正在运行（保活模式）"
-                    else -> getString(R.string.notification_service_running)
-                }
-            )
+            .setContentText(getString(R.string.notification_service_running))
             .setSmallIcon(android.R.drawable.ic_menu_share) // 使用系统图标
             .setContentIntent(mainPendingIntent) // 点击通知打开应用
             .setOngoing(true) // 设置为持续通知，无法被用户滑动删除
             .setAutoCancel(false) // 禁止自动取消
-            .setPriority(
-                when {
-                    !showPersistent -> NotificationCompat.PRIORITY_MIN
-                    keepaliveEnabled -> NotificationCompat.PRIORITY_LOW // 保活模式使用较低优先级但可见
-                    else -> NotificationCompat.PRIORITY_LOW
-                }
-            )
-            
-        // 如果启用保活模式，增强通知的持续性
-        if (keepaliveEnabled) {
-            builder.setCategory(NotificationCompat.CATEGORY_SERVICE)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+        
+        // 手动同步的意图
+        val syncIntent = Intent(this, ClipboardSyncService::class.java).apply {
+            action = ACTION_SYNC_NOW
         }
-            
-        if (showPersistent) {
-            // 停止服务的意图
-            val stopIntent = Intent(this, ClipboardSyncService::class.java).apply {
-                action = ACTION_STOP_SERVICE
-            }
-            val stopPendingIntent = PendingIntent.getService(
-                this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            // 手动同步的意图
-            val syncIntent = Intent(this, ClipboardSyncService::class.java).apply {
-                action = ACTION_SYNC_NOW
-            }
-            val syncPendingIntent = PendingIntent.getService(
-                this, 1, syncIntent, PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            builder.addAction(
-                android.R.drawable.ic_menu_rotate,
-                getString(R.string.manual_sync),
-                syncPendingIntent
-            )
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.stop_serve),
-                stopPendingIntent
-            )
-        }
+        val syncPendingIntent = PendingIntent.getService(
+            this, 0, syncIntent, PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        builder.addAction(
+            android.R.drawable.ic_menu_rotate,
+            "读取剪贴板并同步",
+            syncPendingIntent
+        )
         
         return builder.build()
     }
@@ -651,25 +639,14 @@ class ClipboardSyncService : Service() {
     }
     
     /**
-     * 更新常驻通知
-     */
-    private fun updatePersistentNotification(showPersistent: Boolean) {
-        serviceScope.launch {
-            val notification = createNotification(showPersistent)
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(NOTIFICATION_ID, notification)
-            Logger.d(TAG, "常驻通知设置已更新: $showPersistent")
-        }
-    }
-    
-    /**
      * 显示同步通知
      */
     private suspend fun showSyncNotification(message: String) {
         try {
-            // 检查是否启用同步状态通知（这里不影响常驻通知）
+            // 检查是否启用同步状态通知
             val appSettings = settingsRepository.appSettingsFlow.first()
-            if (!appSettings.showNotifications) {
+            if (!appSettings.showSyncStatusNotifications) {
+                Logger.d(TAG, "同步状态通知已禁用，跳过显示: $message")
                 return
             }
             
@@ -693,6 +670,7 @@ class ClipboardSyncService : Service() {
                 .build()
             
             notificationManager.notify(NOTIFICATION_ID + 1, notification)
+            Logger.d(TAG, "显示同步状态通知: $message")
         } catch (e: Exception) {
             Logger.e(TAG, "显示同步通知时出错", e)
         }

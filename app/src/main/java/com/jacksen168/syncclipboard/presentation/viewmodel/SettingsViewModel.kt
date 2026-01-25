@@ -262,10 +262,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
-     * 更新通知设置
+     * 更新常驻通知设置（前台服务通知）
      */
     fun updateShowNotifications(enabled: Boolean) {
         _appSettings.value = _appSettings.value.copy(showNotifications = enabled)
+        saveAppSettings()
+    }
+    
+    /**
+     * 更新同步状态通知设置
+     */
+    fun updateShowSyncStatusNotifications(enabled: Boolean) {
+        _appSettings.value = _appSettings.value.copy(showSyncStatusNotifications = enabled)
         saveAppSettings()
     }
     
@@ -323,35 +331,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
             } catch (e: Exception) {
                 Logger.e("SettingsViewModel", "更新解锁后重新写入设置失败", e)
-            }
-        }
-    }
-    
-    /**
-     * 更新前台服务保活设置
-     */
-    fun updateForegroundServiceKeepalive(enabled: Boolean) {
-        viewModelScope.launch {
-            try {
-                _appSettings.value = _appSettings.value.copy(foregroundServiceKeepalive = enabled)
-                
-                // 确保设置被保存
-                settingsRepository.saveAppSettings(_appSettings.value)
-                
-                Logger.d("SettingsViewModel", "前台服务保活设置已更改为: $enabled 并已保存")
-                
-                // 等待一下确保保存完成
-                kotlinx.coroutines.delay(100)
-                
-                // 再次验证设置是否正确保存
-                val savedSettings = settingsRepository.appSettingsFlow.first()
-                if (savedSettings.foregroundServiceKeepalive == enabled) {
-                    Logger.d("SettingsViewModel", "设置保存验证成功")
-                } else {
-                    Logger.w("SettingsViewModel", "设置保存验证失败，期望: $enabled，实际: ${savedSettings.foregroundServiceKeepalive}")
-                }
-            } catch (e: Exception) {
-                Logger.e("SettingsViewModel", "更新前台服务保活设置失败", e)
             }
         }
     }

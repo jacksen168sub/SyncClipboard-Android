@@ -39,12 +39,12 @@ class SettingsRepository(private val context: Context) {
         private val SYNC_INTERVAL_KEY = longPreferencesKey("sync_interval")
         private val SYNC_ON_BOOT_KEY = booleanPreferencesKey("sync_on_boot")
         private val SHOW_NOTIFICATIONS_KEY = booleanPreferencesKey("show_notifications")
+        private val SHOW_SYNC_STATUS_NOTIFICATIONS_KEY = booleanPreferencesKey("show_sync_status_notifications")
         private val DEVICE_NAME_KEY = stringPreferencesKey("device_name")
         private val CLIPBOARD_HISTORY_COUNT_KEY = intPreferencesKey("clipboard_history_count")
         private val LOG_DISPLAY_COUNT_KEY = intPreferencesKey("log_display_count")
         private val HIDE_IN_RECENTS_KEY = booleanPreferencesKey("hide_in_recents")
         private val REWRITE_AFTER_UNLOCK_KEY = booleanPreferencesKey("rewrite_after_unlock")
-        private val FOREGROUND_SERVICE_KEEPALIVE_KEY = booleanPreferencesKey("foreground_service_keepalive")
         private val DOWNLOAD_LOCATION_KEY = stringPreferencesKey("download_location")
         private val AUTO_SAVE_FILES_KEY = booleanPreferencesKey("auto_save_files")
         
@@ -75,12 +75,12 @@ class SettingsRepository(private val context: Context) {
             syncInterval = preferences[SYNC_INTERVAL_KEY] ?: 3000L,
             syncOnBoot = preferences[SYNC_ON_BOOT_KEY] ?: false,
             showNotifications = preferences[SHOW_NOTIFICATIONS_KEY] ?: false,
+            showSyncStatusNotifications = preferences[SHOW_SYNC_STATUS_NOTIFICATIONS_KEY] ?: true,
             deviceName = preferences[DEVICE_NAME_KEY] ?: getDefaultDeviceName(),
             clipboardHistoryCount = preferences[CLIPBOARD_HISTORY_COUNT_KEY] ?: 10,
             logDisplayCount = preferences[LOG_DISPLAY_COUNT_KEY] ?: -1,
             hideInRecents = preferences[HIDE_IN_RECENTS_KEY] ?: false,
             rewriteAfterUnlock = preferences[REWRITE_AFTER_UNLOCK_KEY] ?: true,
-            foregroundServiceKeepalive = preferences[FOREGROUND_SERVICE_KEEPALIVE_KEY] ?: false,
             downloadLocation = preferences[DOWNLOAD_LOCATION_KEY] ?: "",
             autoSaveFiles = preferences[AUTO_SAVE_FILES_KEY] ?: false
         )
@@ -112,12 +112,12 @@ class SettingsRepository(private val context: Context) {
             preferences[SYNC_INTERVAL_KEY] = settings.syncInterval
             preferences[SYNC_ON_BOOT_KEY] = settings.syncOnBoot
             preferences[SHOW_NOTIFICATIONS_KEY] = settings.showNotifications
+            preferences[SHOW_SYNC_STATUS_NOTIFICATIONS_KEY] = settings.showSyncStatusNotifications
             preferences[DEVICE_NAME_KEY] = settings.deviceName
             preferences[CLIPBOARD_HISTORY_COUNT_KEY] = settings.clipboardHistoryCount
             preferences[LOG_DISPLAY_COUNT_KEY] = settings.logDisplayCount
             preferences[HIDE_IN_RECENTS_KEY] = settings.hideInRecents
             preferences[REWRITE_AFTER_UNLOCK_KEY] = settings.rewriteAfterUnlock
-            preferences[FOREGROUND_SERVICE_KEEPALIVE_KEY] = settings.foregroundServiceKeepalive
             preferences[DOWNLOAD_LOCATION_KEY] = settings.downloadLocation
             preferences[AUTO_SAVE_FILES_KEY] = settings.autoSaveFiles
         }
