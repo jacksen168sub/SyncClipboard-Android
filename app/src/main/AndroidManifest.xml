@@ -59,6 +59,28 @@
             </intent-filter>
         </activity>
 
+        <!-- 透明 Activity，用于 Quick Settings Tile 触发剪贴板读取 -->
+        <activity
+            android:name=".presentation.ClipboardTileActivity"
+            android:exported="true"
+            android:theme="@style/TransparentTheme"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:finishOnTaskLaunch="true" />
+
+        <!-- Quick Settings Tile 服务 -->
+        <service
+            android:name=".service.ClipboardSyncTileService"
+            android:icon="@drawable/ic_tile_sync"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- 剪贴板同步服务 -->
         <service
             android:name=".service.ClipboardSyncService"
