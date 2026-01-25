@@ -74,10 +74,10 @@ class SyncClipboardApplication : Application(), Configuration.Provider {
             // 创建同步状态通知渠道（用于显示同步结果）
             val syncStatusChannel = NotificationChannel(
                 CHANNEL_ID_SYNC_STATUS,
-                "同步状态",
+                getString(R.string.notification_sync_status_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "显示剪贴板同步结果通知"
+                description = getString(R.string.notification_sync_status_channel_desc)
                 setShowBadge(true)
                 enableVibration(true)
             }

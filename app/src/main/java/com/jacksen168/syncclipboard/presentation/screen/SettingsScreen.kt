@@ -106,15 +106,8 @@ fun SettingsScreen(
             OtherSettingsCard(
                 appSettings = appSettings,
                 onShowNotificationsChange = viewModel::updateShowNotifications,
+                onShowSyncStatusNotificationsChange = viewModel::updateShowSyncStatusNotifications,
                 onHideInRecentsChange = viewModel::updateHideInRecents
-            )
-        }
-        
-        // 实验性功能
-        item {
-            ExperimentalFeaturesCard(
-                appSettings = appSettings,
-                onForegroundServiceKeepaliveChange = viewModel::updateForegroundServiceKeepalive
             )
         }
         
@@ -827,6 +820,7 @@ fun AboutCard() {
 fun OtherSettingsCard(
     appSettings: com.jacksen168.syncclipboard.data.model.AppSettings,
     onShowNotificationsChange: (Boolean) -> Unit,
+    onShowSyncStatusNotificationsChange: (Boolean) -> Unit,
     onHideInRecentsChange: (Boolean) -> Unit
 ) {
     Card(
@@ -870,6 +864,19 @@ fun OtherSettingsCard(
                 }
             )
             
+            // 同步状态通知
+            SettingItem(
+                title = stringResource(R.string.sync_status_notification),
+                description = stringResource(R.string.sync_status_notification_desc),
+                icon = Icons.Default.NotificationsActive,
+                trailing = {
+                    Switch(
+                        checked = appSettings.showSyncStatusNotifications,
+                        onCheckedChange = onShowSyncStatusNotificationsChange
+                    )
+                }
+            )
+            
             // 在多任务页面隐藏
             SettingItem(
                 title = stringResource(R.string.hide_in_recents),
@@ -879,84 +886,6 @@ fun OtherSettingsCard(
                     Switch(
                         checked = appSettings.hideInRecents,
                         onCheckedChange = onHideInRecentsChange
-                    )
-                }
-            )
-        }
-    }
-}
-
-/**
- * 实验性功能卡片
- */
-@Composable
-fun ExperimentalFeaturesCard(
-    appSettings: com.jacksen168.syncclipboard.data.model.AppSettings,
-    onForegroundServiceKeepaliveChange: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // 标题
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Science,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = stringResource(R.string.experimental_features),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            
-            // 警告信息
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.experimental_warning),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-            }
-            
-            // 前台服务保活
-            SettingItem(
-                title = stringResource(R.string.foreground_service_keepalive),
-                description = stringResource(R.string.foreground_service_keepalive_desc),
-                icon = Icons.Default.Shield,
-                trailing = {
-                    Switch(
-                        checked = appSettings.foregroundServiceKeepalive,
-                        onCheckedChange = onForegroundServiceKeepaliveChange
                     )
                 }
             )
