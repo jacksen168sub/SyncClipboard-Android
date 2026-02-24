@@ -97,6 +97,7 @@ fun SettingsScreen(
                 onDownloadLocationChange = viewModel::updateDownloadLocation,
                 onRequestDownloadLocationSelection = viewModel::requestDownloadLocationSelection,
                 onAutoSaveFilesChange = viewModel::updateAutoSaveFiles,
+                onUseRealtimeSyncChange = viewModel::updateUseRealtimeSync,
                 syncIntervalSeconds = viewModel.getSyncIntervalSeconds()
             )
         }
@@ -364,6 +365,7 @@ fun SyncSettingsCard(
     onDownloadLocationChange: (String) -> Unit,
     onRequestDownloadLocationSelection: () -> Unit,
     onAutoSaveFilesChange: (Boolean) -> Unit,
+    onUseRealtimeSyncChange: (Boolean) -> Unit,
     syncIntervalSeconds: Long
 ) {
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -438,6 +440,19 @@ fun SyncSettingsCard(
                     Switch(
                         checked = appSettings.syncOnBoot,
                         onCheckedChange = onSyncOnBootChange
+                    )
+                }
+            )
+            
+            // 实时通讯
+            SettingItem(
+                title = stringResource(R.string.realtime_sync),
+                description = stringResource(R.string.realtime_sync_desc),
+                icon = Icons.Default.Wifi,
+                trailing = {
+                    Switch(
+                        checked = appSettings.useRealtimeSync,
+                        onCheckedChange = onUseRealtimeSyncChange
                     )
                 }
             )

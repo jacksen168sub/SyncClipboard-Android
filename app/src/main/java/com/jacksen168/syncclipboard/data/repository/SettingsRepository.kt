@@ -47,6 +47,7 @@ class SettingsRepository(private val context: Context) {
         private val REWRITE_AFTER_UNLOCK_KEY = booleanPreferencesKey("rewrite_after_unlock")
         private val DOWNLOAD_LOCATION_KEY = stringPreferencesKey("download_location")
         private val AUTO_SAVE_FILES_KEY = booleanPreferencesKey("auto_save_files")
+        private val USE_REALTIME_SYNC_KEY = booleanPreferencesKey("use_realtime_sync")
         
         // 密码加密密钥（简单的对称加密）
         private const val ENCRYPTION_KEY = "jascksen168_SyncClipboard"
@@ -82,7 +83,8 @@ class SettingsRepository(private val context: Context) {
             hideInRecents = preferences[HIDE_IN_RECENTS_KEY] ?: false,
             rewriteAfterUnlock = preferences[REWRITE_AFTER_UNLOCK_KEY] ?: true,
             downloadLocation = preferences[DOWNLOAD_LOCATION_KEY] ?: "",
-            autoSaveFiles = preferences[AUTO_SAVE_FILES_KEY] ?: false
+            autoSaveFiles = preferences[AUTO_SAVE_FILES_KEY] ?: false,
+            useRealtimeSync = preferences[USE_REALTIME_SYNC_KEY] ?: true
         )
     }
     
@@ -120,6 +122,7 @@ class SettingsRepository(private val context: Context) {
             preferences[REWRITE_AFTER_UNLOCK_KEY] = settings.rewriteAfterUnlock
             preferences[DOWNLOAD_LOCATION_KEY] = settings.downloadLocation
             preferences[AUTO_SAVE_FILES_KEY] = settings.autoSaveFiles
+            preferences[USE_REALTIME_SYNC_KEY] = settings.useRealtimeSync
         }
         Logger.d("SettingsRepository", "应用设置保存完成")
     }

@@ -24,7 +24,9 @@ import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * 剪贴板数据仓库
@@ -300,7 +302,7 @@ class ClipboardRepository(
                 val response = api.getClipboard()
                 if (response.isSuccessful) {
                     val body = response.body()
-                    if (body != null && body.clipboard.isNotEmpty()) {
+                    if (body != null && (body.text != null || body.hasData)) {
                         // 转换SyncClipboard格式到本地ClipboardItem格式
                         val type = when (body.type) {
                             "Text" -> ClipboardType.TEXT
@@ -309,13 +311,23 @@ class ClipboardRepository(
                             else -> ClipboardType.TEXT
                         }
 
-                        val fileName = if (body.file.isNotEmpty()) body.file else null
+                        val fileName = if (body.hasData && body.dataName != null) body.dataName else null
 
                         // 对于图片类型,需要下载文件并保存到本地
-                        val content = if (type == ClipboardType.IMAGE && fileName != null) {
-                            downloadImageFile(fileName, body.clipboard)
-                        } else {
-                            body.clipboard
+                        // 注意：服务端存储文件使用 dataName（原始文件名），而不是 hash
+                        val content = when {
+                            type == ClipboardType.IMAGE && fileName != null -> {
+                                // 图片：使用原始文件名下载
+                                downloadImageFile(fileName, body.hash)
+                            }
+                            type == ClipboardType.FILE && fileName != null -> {
+                                // 文件：保存文件名信息
+                                body.text ?: ""
+                            }
+                            else -> {
+                                // 文本：直接使用 text 字段
+                                body.text ?: ""
+                            }
                         }
                         
                         // 检查内容大小，如果太大则裁剪
@@ -326,8 +338,9 @@ class ClipboardRepository(
                             Logger.d(TAG, "裁剪后内容大小: ${processedContent.length} 字符")
                         }
 
-                        val contentHash = ClipboardItem.generateContentHash(processedContent, type, fileName)
-
+                        // 对于从服务端获取的内容，直接使用服务端的 hash 作为 contentHash
+                        val contentHash = body.hash
+                        
                         // 检查是否与最后同步的内容相同（防止循环）
                         if (contentHash == lastSyncedContentHash) {
                             return@withContext Result.success(null)
@@ -350,7 +363,7 @@ class ClipboardRepository(
                             // 创建新的远程项目
                             val newItem = ClipboardItem(
                                 id = UUID.randomUUID().toString(),
-                                content = if (type == ClipboardType.IMAGE) body.clipboard else processedContent,
+                                content = if (type == ClipboardType.IMAGE) body.hash else processedContent,
                                 type = type,
                                 timestamp = System.currentTimeMillis(),
                                 fileName = fileName,
@@ -438,22 +451,34 @@ class ClipboardRepository(
 
                     Logger.d(TAG, "文件存在,开始计算哈希值: ${file.absolutePath}, 大小: ${file.length()} bytes")
 
-                    val fileHash = calculateFileHash(file)
+                    // 使用与服务端一致的哈希计算方式：
+                    // 1. 计算文件内容的 SHA256 哈希值并转换为大写十六进制字符串
+                    // 2. 构造字符串：fileName|文件内容SHA256字符串
+                    // 3. 对该字符串进行 UTF-8 编码后再次计算 SHA256
+                    val fileContentHash = calculateFileHash(file)
+                    if (fileContentHash.isEmpty()) {
+                        Logger.e(TAG, "无法计算文件内容哈希值")
+                        return@withContext Result.failure(Exception("无法计算文件内容哈希值"))
+                    }
+                    
+                    val fileHash = ClipboardItem.generateImageHash(processedItem.fileName, fileContentHash)
+                    
                     if (fileHash.isEmpty()) {
                         Logger.e(TAG, "无法计算文件哈希值")
                         return@withContext Result.failure(Exception("无法计算文件哈希值"))
                     }
 
-                    Logger.d(TAG, "文件哈希值计算完成: $fileHash")
+                    Logger.d(TAG, "文件内容哈希值: $fileContentHash")
+                    Logger.d(TAG, "服务端使用的哈希值: $fileHash")
                     
                     // 检查服务端是否已存在相同内容的剪贴板项目
                     Logger.d(TAG, "检查服务端是否已存在相同内容的剪贴板项目")
                     val serverClipboard = api.getClipboard()
                     if (serverClipboard.isSuccessful) {
                         val serverBody = serverClipboard.body()
-                        if (serverBody != null && 
-                            serverBody.type == "Image" && 
-                            serverBody.clipboard == fileHash) {
+                        if (serverBody != null &&
+                            serverBody.type == "Image" &&
+                            serverBody.hash == fileHash) {
                             Logger.d(TAG, "服务端已存在相同内容的图片，跳过上传: fileHash=$fileHash")
                             // 标记为已同步
                             val updatedItem = processedItem.copy(
@@ -467,7 +492,7 @@ class ClipboardRepository(
                         } else {
                             Logger.d(TAG, "服务端不存在相同内容的图片，继续上传流程")
                             if (serverBody != null) {
-                                Logger.d(TAG, "服务端当前内容: type=${serverBody.type}, clipboard=${serverBody.clipboard}")
+                                Logger.d(TAG, "服务端当前内容: type=${serverBody.type}, hash=${serverBody.hash}")
                             }
                         }
                     } else {
@@ -486,19 +511,25 @@ class ClipboardRepository(
                         Logger.d(TAG, "图片文件上传成功: ${processedItem.fileName}")
                     }
 
-                    // 发送元数据,使用文件哈希作为Clipboard内容
+                    // 发送元数据,使用新版 API 格式
+                    // 带上本地计算的哈希值，让服务端校验
                     val request = SyncClipboardRequest(
                         type = typeString,
-                        clipboard = fileHash,
-                        file = processedItem.fileName
+                        hash = fileHash, // 发送本地计算的哈希值
+                        text = processedItem.fileName, // 图片类型的 text 字段是文件名
+                        hasData = true,
+                        dataName = processedItem.fileName,
+                        size = file.length()
                     )
 
-                    Logger.d(TAG, "上传图片元数据: file=$fileHash, filename=${processedItem.fileName}")
+                    Logger.d(TAG, "上传图片元数据: dataName=${processedItem.fileName}, size=${file.length()}, hash=$fileHash")
 
                     val response = api.uploadClipboard(request)
                     if (response.isSuccessful) {
                         // 标记为已同步
                         val updatedItem = processedItem.copy(
+                            content = fileHash, // 使用本地计算的哈希值
+                            contentHash = fileHash, // 使用本地计算的哈希值
                             isSynced = true,
                             lastModified = System.currentTimeMillis()
                         )
@@ -506,27 +537,53 @@ class ClipboardRepository(
                         settingsRepository.updateLastSyncTime(System.currentTimeMillis())
 
                         // 记录最后同步的内容哈希
-                        lastSyncedContentHash = processedItem.contentHash
+                        lastSyncedContentHash = fileHash
 
                         Logger.d(TAG, "图片元数据上传成功")
                         Result.success(updatedItem)
                     } else {
                         Logger.e(TAG, "图片元数据上传失败: HTTP ${response.code()}")
+                        // 尝试读取错误响应
+                        try {
+                            val errorBody = response.errorBody()?.string()
+                            if (!errorBody.isNullOrEmpty()) {
+                                Logger.e(TAG, "上传错误响应: $errorBody")
+                            }
+                        } catch (e: Exception) {
+                            Logger.e(TAG, "读取错误响应时出错", e)
+                        }
                         Result.failure(Exception("元数据上传失败: HTTP ${response.code()}"))
                     }
                 } else {
                     // 文本类型的处理或图片上传条件不满足
-                    Logger.d(TAG, "进入非图片上传逆辑,直接上传元数据")
+                    Logger.d(TAG, "进入非图片上传逻辑,直接上传元数据")
+                    val localHash = ClipboardItem.generateContentHash(processedItem.content, ClipboardType.TEXT, null)
                     val request = SyncClipboardRequest(
                         type = typeString,
-                        clipboard = processedItem.content,
-                        file = processedItem.fileName ?: ""
+                        hash = localHash,
+                        text = processedItem.content,
+                        hasData = false,
+                        dataName = null,
+                        size = processedItem.content.length.toLong()
                     )
 
                     val response = api.uploadClipboard(request)
                     if (response.isSuccessful) {
-                        // 标记为已同步
+                        // 重新获取服务端的最新哈希值
+                        val serverResponse = api.getClipboard()
+                        var serverHash = localHash // 默认使用本地计算的哈希
+
+                        if (serverResponse.isSuccessful && serverResponse.body() != null) {
+                            val serverBody = serverResponse.body()!!
+                            if (serverBody.type == typeString) {
+                                serverHash = serverBody.hash
+                                Logger.d(TAG, "获取到服务端哈希值: $serverHash")
+                            }
+                        }
+
+                        // 标记为已同步，并更新为服务端的哈希值
                         val updatedItem = processedItem.copy(
+                            contentHash = serverHash, // 使用服务端的哈希值
                             isSynced = true,
                             lastModified = System.currentTimeMillis()
                         )
@@ -534,7 +591,7 @@ class ClipboardRepository(
                         settingsRepository.updateLastSyncTime(System.currentTimeMillis())
 
                         // 记录最后同步的内容哈希
-                        lastSyncedContentHash = processedItem.contentHash
+                        lastSyncedContentHash = serverHash
 
                         Result.success(updatedItem)
                     } else {
@@ -880,12 +937,12 @@ class ClipboardRepository(
 
             val localFile = File(cacheDir, fileName)
 
-            // 如果本地文件存在且哈希值匹配,直接返回本地路径
+            // 如果本地文件存在,直接返回本地路径（不需要验证哈希）
+            // 注意：服务端的 hash 是基于格式化字符串计算的，与文件内容的 SHA256 不同
+            // 服务端已通过 HTTP 200 OK 确认文件存在和有效，无需再次验证
             if (localFile.exists()) {
-                val localHash = calculateFileHash(localFile)
-                if (localHash == expectedHash) {
-                    return localFile.absolutePath
-                }
+                Logger.d(TAG, "本地文件已存在，直接使用: ${localFile.absolutePath}")
+                return localFile.absolutePath
             }
 
             // 下载文件
@@ -901,14 +958,12 @@ class ClipboardRepository(
                         }
                     }
 
-                    // 验证下载的文件哈希值
-                    val downloadedHash = calculateFileHash(localFile)
-                    if (downloadedHash == expectedHash) {
-                        localFile.absolutePath
-                    } else {
-                        Logger.w(TAG, "下载的图片哈希值不匹配: 预期=$expectedHash, 实际=$downloadedHash")
-                        localFile.absolutePath // 仍然返回路径,但记录警告
-                    }
+                    // 记录文件路径到服务端 hash 的映射（用于后续上传时使用服务端的 hash）
+                    com.jacksen168.syncclipboard.service.ClipboardManager.recordServerHash(localFile.absolutePath, expectedHash)
+                    
+                    // 注意：服务端的 hash 是基于格式化字符串计算的，与文件内容的 SHA256 不同
+                    // 服务端已通过 HTTP 200 OK 确认文件存在和有效，无需再次验证哈希值
+                    localFile.absolutePath
                 } ?: expectedHash // 如果下载失败,返回哈希值
             } else {
                 Logger.e(TAG, "下载图片失败: HTTP ${response.code()}")
@@ -962,10 +1017,7 @@ class ClipboardRepository(
             // 上传文件
             Logger.d(TAG, "开始上传图片文件: $fileName, 大小: ${file.length()} bytes")
 
-            val requestBody = RequestBody.create(
-                "image/*".toMediaType(),
-                file
-            )
+            val requestBody = file.asRequestBody("image/*".toMediaType())
 
             Logger.d(TAG, "请求体创建完成,开始发送PUT请求")
 
@@ -1002,7 +1054,8 @@ class ClipboardRepository(
      */
     private fun calculateFileHash(file: File): String {
         return try {
-            val digest = java.security.MessageDigest.getInstance("MD5")
+            // 使用 SHA256 算法以匹配服务端
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
             val inputStream = file.inputStream()
             val buffer = ByteArray(8192)
             var bytesRead: Int
@@ -1013,7 +1066,8 @@ class ClipboardRepository(
                 }
             }
 
-            digest.digest().joinToString("") { "%02x".format(it) }
+            // 转换为大写十六进制字符串（与服务端保持一致）
+            digest.digest().joinToString("") { "%02X".format(it) }
         } catch (e: Exception) {
             Logger.e(TAG, "计算文件哈希时出错", e)
             ""

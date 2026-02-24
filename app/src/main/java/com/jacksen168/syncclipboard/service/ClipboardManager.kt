@@ -16,6 +16,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 剪贴板管理器
@@ -47,6 +48,30 @@ class ClipboardManager(private val context: Context) {
     companion object {
         private const val TAG = "ClipboardManager"
         private const val CLIPBOARD_CACHE_DIR = "clipboard_cache"
+        
+        // 映射：文件路径 -> 服务端 hash（用于从服务端下载的图片）
+        private val serverHashMap = ConcurrentHashMap<String, String>()
+        
+        /**
+         * 记录文件路径到服务端 hash 的映射
+         */
+        fun recordServerHash(filePath: String, serverHash: String) {
+            serverHashMap[filePath] = serverHash
+        }
+        
+        /**
+         * 获取文件对应的服务端 hash
+         */
+        fun getServerHash(filePath: String): String? {
+            return serverHashMap[filePath]
+        }
+        
+        /**
+         * 清除文件到服务端 hash 的映射
+         */
+        fun clearServerHash(filePath: String) {
+            serverHashMap.remove(filePath)
+        }
     }
     
     /**
@@ -163,62 +188,101 @@ class ClipboardManager(private val context: Context) {
      */
     private fun handleImageUri(uri: Uri): ClipboardItem? {
         return try {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            if (inputStream != null) {
-                // 创建缓存目录
-                val cacheDir = File(context.cacheDir, CLIPBOARD_CACHE_DIR)
-                if (!cacheDir.exists()) {
-                    cacheDir.mkdirs()
-                }
-                
-                // 尝试从URI获取原始文件名
-                var originalFileName: String? = null
-                try {
-                    // 尝试从URI获取原始文件名
-                    originalFileName = getFileNameFromUri(uri)
-                } catch (e: Exception) {
-                    Logger.w(TAG, "无法从URI获取原始文件名", e)
-                }
-                
-                // 生成文件名 - 如果有原始文件名则使用，否则使用基于内容哈希的统一命名格式
-                val tempFile = File.createTempFile("temp_image_", ".tmp")
-                val outputStream = FileOutputStream(tempFile)
-                inputStream.copyTo(outputStream)
-                inputStream.close()
-                outputStream.close()
-                
-                // 计算文件哈希值
-                val fileHash = calculateFileHash(tempFile)
-                
-                // 确定文件名
-                val fileName = if (!originalFileName.isNullOrEmpty()) {
-                    // 使用原始文件名，但确保使用正确的哈希文件名以避免重复
-                    originalFileName
-                } else {
-                    // 使用统一的命名格式：clipboard_image_{hash}.{extension}
-                    // 从MIME类型推断扩展名
-                    val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-                    val extension = when {
-                        mimeType.contains("png") -> "png"
-                        mimeType.contains("gif") -> "gif"
-                        else -> "jpg"
+            // 检查是否是我们自己的 FileProvider URI（来自 /cache/images/ 目录）
+            val isOurFileProvider = uri.scheme == "content" && 
+                                  uri.authority == "${context.packageName}.fileprovider"
+            
+            var cacheFile: File? = null
+            var fileName: String? = null
+            
+            if (isOurFileProvider) {
+                // 直接从 FileProvider URI 获取文件路径
+                val path = uri.path
+                if (path != null && path.contains("/images/")) {
+                    // 从路径中提取文件名
+                    fileName = path.substringAfterLast("/")
+                    cacheFile = File(context.cacheDir, "images/$fileName")
+                    
+                    if (cacheFile.exists()) {
+                        Logger.d(TAG, "使用已缓存的图片文件: ${cacheFile.absolutePath}")
+                    } else {
+                        Logger.w(TAG, "缓存文件不存在: ${cacheFile.absolutePath}")
+                        cacheFile = null
                     }
-                    "clipboard_image_${fileHash}.${extension}"
                 }
-                
-                val cacheFile = File(cacheDir, fileName)
-                
-                // 如果文件不存在，则移动临时文件
-                if (!cacheFile.exists()) {
-                    tempFile.renameTo(cacheFile)
+            }
+            
+            // 如果不是我们的 FileProvider URI 或者缓存文件不存在，则复制文件
+            if (cacheFile == null) {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    // 创建缓存目录
+                    val cacheDir = File(context.cacheDir, CLIPBOARD_CACHE_DIR)
+                    if (!cacheDir.exists()) {
+                        cacheDir.mkdirs()
+                    }
+                    
+                    // 尝试从URI获取原始文件名
+                    fileName = try {
+                        getFileNameFromUri(uri)
+                    } catch (e: Exception) {
+                        Logger.w(TAG, "无法从URI获取原始文件名", e)
+                        null
+                    }
+                    
+                    // 生成文件名 - 如果有原始文件名则使用，否则使用基于内容哈希的统一命名格式
+                    val tempFile = File.createTempFile("temp_image_", ".tmp")
+                    val outputStream = FileOutputStream(tempFile)
+                    inputStream.copyTo(outputStream)
+                    inputStream.close()
+                    outputStream.close()
+                    
+                    // 计算文件哈希值
+                    val fileHash = calculateFileHash(tempFile)
+                    
+                    // 确定文件名
+                    if (!fileName.isNullOrEmpty()) {
+                        // 保留原始文件名（服务端需要使用 hash 值，但这里只做本地缓存）
+                        Logger.d(TAG, "使用原始文件名: $fileName")
+                    } else {
+                        // 使用统一的命名格式：clipboard_image_{hash}.{extension}
+                        // 从MIME类型推断扩展名
+                        val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
+                        val extension = when {
+                            mimeType.contains("png") -> "png"
+                            mimeType.contains("gif") -> "gif"
+                            else -> "jpg"
+                        }
+                        fileName = "clipboard_image_${fileHash}.${extension}"
+                    }
+                    
+                    cacheFile = File(cacheDir, fileName)
+                    
+                    // 如果文件不存在，则移动临时文件
+                    if (!cacheFile.exists()) {
+                        tempFile.renameTo(cacheFile)
+                    } else {
+                        // 如果文件已存在，删除临时文件
+                        tempFile.delete()
+                    }
+                }
+            }
+            
+            if (cacheFile != null && cacheFile.exists()) {
+                // 对于从服务端下载的图片（在 /cache/images/ 目录），优先使用服务端的 hash
+                // 对于本地图片，使用服务端格式的哈希计算方式：
+                // 1. 计算文件内容的 SHA256 哈希值并转换为大写十六进制字符串
+                // 2. 构造字符串：fileName|文件内容SHA256字符串
+                // 3. 对该字符串进行 UTF-8 编码后再次计算 SHA256
+                val fileHash = if (cacheFile.absolutePath.contains("/cache/images/")) {
+                    getServerHash(cacheFile.absolutePath) ?: ClipboardItem.generateImageHash(fileName ?: "", calculateFileHash(cacheFile))
                 } else {
-                    // 如果文件已存在，删除临时文件
-                    tempFile.delete()
+                    ClipboardItem.generateImageHash(fileName ?: "", calculateFileHash(cacheFile))
                 }
                 
                 ClipboardItem(
                     id = UUID.randomUUID().toString(),
-                    content = fileHash, // 使用哈希值作为content
+                    content = fileHash, // 使用服务端格式的哈希值作为content
                     type = ClipboardType.IMAGE,
                     timestamp = System.currentTimeMillis(),
                     deviceName = getDeviceName(),
@@ -227,7 +291,7 @@ class ClipboardManager(private val context: Context) {
                     mimeType = context.contentResolver.getType(uri) ?: "image/jpeg",
                     localPath = cacheFile.absolutePath,
                     source = ClipboardSource.LOCAL,
-                    contentHash = ClipboardItem.generateContentHash(fileHash, ClipboardType.IMAGE, fileName),
+                    contentHash = fileHash, // 直接使用文件哈希（对于服务端图片是服务端的 hash）
                     lastModified = System.currentTimeMillis()
                 )
             } else {
@@ -386,11 +450,11 @@ class ClipboardManager(private val context: Context) {
     }
     
     /**
-     * 计算文件哈希值
+     * 计算文件哈希值（使用 SHA256）
      */
     private fun calculateFileHash(file: File): String {
         return try {
-            val digest = java.security.MessageDigest.getInstance("MD5")
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
             val inputStream = file.inputStream()
             val buffer = ByteArray(8192)
             var bytesRead: Int
@@ -401,7 +465,8 @@ class ClipboardManager(private val context: Context) {
                 }
             }
             
-            digest.digest().joinToString("") { "%02x".format(it) }
+            // 转换为大写十六进制字符串（与服务端保持一致）
+            digest.digest().joinToString("") { "%02X".format(it) }
         } catch (e: Exception) {
             Logger.e(TAG, "计算文件哈希时出错", e)
             "" // 返回空字符串，让调用方处理

@@ -27,7 +27,8 @@ data class AppSettings(
     val hideInRecents: Boolean = false, // 在多任务页面隐藏应用
     val rewriteAfterUnlock: Boolean = true, // 解锁后自动重新写入剪贴板同步过来的内容
     val downloadLocation: String = "", // 文件下载位置
-    val autoSaveFiles: Boolean = false // 文件自动保存开关
+    val autoSaveFiles: Boolean = false, // 文件自动保存开关
+    val useRealtimeSync: Boolean = true // 使用实时同步（WebSocket/SignalR）
 )
 
 /**

@@ -18,6 +18,9 @@ import com.jacksen168.syncclipboard.data.model.SyncStatus
 import com.jacksen168.syncclipboard.data.model.AppSettings
 import com.jacksen168.syncclipboard.data.repository.ClipboardRepository
 import com.jacksen168.syncclipboard.data.repository.SettingsRepository
+import com.jacksen168.syncclipboard.data.network.SignalRClient
+import com.jacksen168.syncclipboard.data.network.ClipboardChangedEvent
+import com.jacksen168.syncclipboard.data.network.HistoryChangedEvent
 import com.jacksen168.syncclipboard.presentation.MainActivity
 import com.jacksen168.syncclipboard.util.ContentLimiter
 import com.jacksen168.syncclipboard.util.Logger
@@ -34,6 +37,9 @@ class ClipboardSyncService : Service() {
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var clipboardRepository: ClipboardRepository
     private lateinit var clipboardManager: ClipboardManager
+
+    // SignalR 客户端
+    private var signalRClient: SignalRClient? = null
 
     // 服务协程作用域
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -126,6 +132,9 @@ class ClipboardSyncService : Service() {
         // 监听设置变化
         observeSettings()
         
+        // 初始化 SignalR 客户端
+        observeServerConfig()
+        
         // 启动前台通知（异步创建）
         serviceScope.launch {
             val notification = createNotification()
@@ -178,6 +187,10 @@ class ClipboardSyncService : Service() {
         super.onDestroy()
         Logger.d(TAG, "服务销毁")
         
+        // 断开 SignalR 连接
+        signalRClient?.disconnect()
+        signalRClient = null
+        
         // 停止剪贴板监听
         clipboardManager.stopListening()
         
@@ -221,15 +234,152 @@ class ClipboardSyncService : Service() {
                     
                     // 检查是否需要自动同步
                     val settings = settingsRepository.appSettingsFlow.first()
+                    Logger.d(TAG, "自动同步设置: autoSync=${settings.autoSync}")
                     if (settings.autoSync) {
+                        Logger.d(TAG, "准备同步到服务器...")
                         // 添加小延迟，确保本地保存完成
                         delay(500)
                         syncToServer(savedItem)
+                    } else {
+                        Logger.d(TAG, "自动同步已禁用，跳过同步")
                     }
                 }
         }
     }
     
+    /**
+     * 监听服务器配置和应用设置变化，初始化 SignalR 客户端
+     */
+    private fun observeServerConfig() {
+        serviceScope.launch {
+            combine(
+                settingsRepository.serverConfigFlow,
+                settingsRepository.appSettingsFlow
+            ) { serverConfig, appSettings ->
+                Pair(serverConfig, appSettings)
+            }.collect { (config, appSettings) ->
+                if (config.url.isNotEmpty() && appSettings.useRealtimeSync) {
+                    // 初始化 SignalR 客户端
+                    signalRClient?.disconnect()
+                    signalRClient = SignalRClient(
+                        serverUrl = config.url,
+                        username = config.username,
+                        password = config.password,
+                        trustUnsafeSSL = config.trustUnsafeSSL
+                    )
+                    
+                    // 连接并监听事件
+                    connectAndListenSignalR()
+                    Logger.d(TAG, "SignalR 客户端已初始化: ${config.url}")
+                } else {
+                    // 断开连接
+                    signalRClient?.disconnect()
+                    signalRClient = null
+                    val reason = if (config.url.isEmpty()) "无服务器配置" else "实时通讯已关闭"
+                    Logger.d(TAG, "SignalR 客户端已断开（$reason）")
+                }
+            }
+        }
+    }
+
+    /**
+     * 连接到 SignalR Hub 并监听事件
+     */
+    private fun connectAndListenSignalR() {
+        val client = signalRClient ?: return
+        
+        // 连接到 SignalR Hub
+        client.connect()
+        
+        // 监听连接状态
+        serviceScope.launch {
+            client.connectionState.collect { state ->
+                when (state) {
+                    is SignalRClient.ConnectionState.CONNECTED -> {
+                        Logger.d(TAG, "SignalR 已连接")
+                        _syncStatus.value = SyncStatus.CONNECTED
+                    }
+                    is SignalRClient.ConnectionState.DISCONNECTED -> {
+                        Logger.w(TAG, "SignalR 已断开")
+                    }
+                    is SignalRClient.ConnectionState.ERROR -> {
+                        Logger.e(TAG, "SignalR 错误: ${state.message}")
+                    }
+                    is SignalRClient.ConnectionState.RECONNECTING -> {
+                        Logger.d(TAG, "SignalR 正在重连...")
+                    }
+                    else -> {}
+                }
+            }
+        }
+        
+        // 监听剪贴板变更事件
+        serviceScope.launch {
+            client.clipboardChangedEvent.collect { event ->
+                Logger.d(TAG, "收到剪贴板变更事件: ${event.type}")
+                handleRemoteClipboardChange(event)
+            }
+        }
+        
+        // 监听历史记录变更事件
+        serviceScope.launch {
+            client.historyChangedEvent.collect { event ->
+                Logger.d(TAG, "收到历史记录变更事件: ${event.action}")
+                handleRemoteHistoryChange(event)
+            }
+        }
+    }
+
+    /**
+     * 处理远程剪贴板变更
+     */
+    private suspend fun handleRemoteClipboardChange(event: ClipboardChangedEvent) {
+        try {
+            // 防止循环同步
+            val currentContent = clipboardManager.getCurrentClipboardContent()
+            val currentHash = if (currentContent != null) {
+                ClipboardItem.generateContentHash(currentContent.content, currentContent.type, currentContent.fileName)
+            } else null
+            
+            // 如果内容相同，跳过
+            if (currentHash == event.hash) {
+                Logger.d(TAG, "远程内容与当前剪贴板相同，跳过更新")
+                return
+            }
+            
+            // 从服务器获取完整内容
+            val result = clipboardRepository.fetchFromServer()
+            result.onSuccess { item ->
+                if (item != null) {
+                    // 更新剪贴板
+                    updateClipboardFromServer(item)
+                    showSyncNotification("收到远程更新: ${item.uiContent.take(20)}...")
+                }
+            }.onFailure { error ->
+                Logger.e(TAG, "获取远程内容失败", error)
+            }
+            
+            // 发送刷新广播
+            sendBroadcast(Intent("com.jacksen168.syncclipboard.REFRESH_LIST"))
+        } catch (e: Exception) {
+            Logger.e(TAG, "处理远程剪贴板变更时出错", e)
+        }
+    }
+
+    /**
+     * 处理远程历史记录变更
+     */
+    private suspend fun handleRemoteHistoryChange(event: HistoryChangedEvent) {
+        try {
+            Logger.d(TAG, "处理历史记录变更: action=${event.action}, hash=${event.hash}")
+            // 可以在这里实现历史记录同步逻辑
+            // 发送刷新广播
+            sendBroadcast(Intent("com.jacksen168.syncclipboard.REFRESH_LIST"))
+        } catch (e: Exception) {
+            Logger.e(TAG, "处理远程历史记录变更时出错", e)
+        }
+    }
+
     /**
      * 监听设置变化
      */
@@ -283,13 +433,15 @@ class ClipboardSyncService : Service() {
         autoSyncJob?.cancel()
         
         if (enabled) {
+            // 使用更长的间隔作为兜底（SignalR 负责实时同步）
+            val fallbackInterval = if (signalRClient != null) interval * 10 else interval
             autoSyncJob = serviceScope.launch {
                 while (isActive) {
-                    delay(interval)
+                    delay(fallbackInterval)
                     performPeriodicSync()
                 }
             }
-            Logger.d(TAG, "启用自动同步，间隔: ${interval}ms")
+            Logger.d(TAG, "启用自动同步，间隔: ${fallbackInterval}ms（SignalR${if (signalRClient != null) "已连接" else "未连接"}）")
         } else {
             Logger.d(TAG, "禁用自动同步")
         }
@@ -569,9 +721,11 @@ class ClipboardSyncService : Service() {
      * 同步到服务器
      */
     private suspend fun syncToServer(item: com.jacksen168.syncclipboard.data.model.ClipboardItem) {
+        Logger.d(TAG, "开始同步到服务器: type=${item.type}, id=${item.id}")
         try {
             _syncStatus.value = SyncStatus.SYNCING
             
+            Logger.d(TAG, "调用 uploadToServer...")
             val result = clipboardRepository.uploadToServer(item)
             result.onSuccess {
                 _syncStatus.value = SyncStatus.CONNECTED

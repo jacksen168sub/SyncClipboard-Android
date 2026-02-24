@@ -368,6 +368,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * 更新实时通讯设置
+     */
+    fun updateUseRealtimeSync(enabled: Boolean) {
+        _appSettings.value = _appSettings.value.copy(useRealtimeSync = enabled)
+        saveAppSettings()
+    }
+    
+    /**
      * 更新剪贴板历史显示数量
      */
     fun updateClipboardHistoryCount(count: Int) {

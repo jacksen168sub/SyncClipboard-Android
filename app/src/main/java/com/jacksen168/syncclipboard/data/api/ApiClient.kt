@@ -24,6 +24,8 @@ import com.jacksen168.syncclipboard.util.Logger
  */
 object ApiClient {
     
+    private const val GITHUB_BASE_URL = "https://api.github.com"
+    
     /**
      * 验证URL是否有效
      */
@@ -70,7 +72,6 @@ object ApiClient {
                 }
                 
                 val request = requestBuilder.build()
-                // Logger.d("ApiClient", "发送请求: ${request.method} ${request.url}")
                 chain.proceed(request)
             }
             .authenticator(BasicAuthenticator(username, password))
@@ -94,6 +95,32 @@ object ApiClient {
         
         Logger.d("ApiClient", "API服务创建完成")
         return retrofit.create(SyncClipboardApi::class.java)
+    }
+    
+    /**
+     * 创建 GitHub API 服务
+     */
+    fun createGithubService(): GithubApiService {
+        Logger.d("ApiClient", "创建 GitHub API 服务")
+        
+        val gson = GsonBuilder()
+            .setLenient()
+            .create()
+        
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor(createLoggingInterceptor())
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+        
+        val retrofit = Retrofit.Builder()
+            .baseUrl(GITHUB_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create(gson))
+            .build()
+        
+        return retrofit.create(GithubApiService::class.java)
     }
     
     /**
