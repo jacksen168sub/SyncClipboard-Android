@@ -49,7 +49,7 @@
     <string name="sync_on_boot">启动时自动开启服务</string>
     <string name="sync_on_boot_desc">应用启动时自动开启剪贴板同步服务</string>
     <string name="realtime_sync">实时通讯</string>
-    <string name="realtime_sync_desc">使用 WebSocket 实时接收服务端推送</string>
+    <string name="realtime_sync_desc">换用 WebSocket 实时接收服务端推送,开启将停用定期轮询</string>
     <string name="rewrite_after_unlock">解锁屏幕后重新写入剪贴板</string>
     <string name="rewrite_after_unlock_desc">锁屏期间如内容已同步到APP但没有写入剪贴板时,解锁屏幕后自动将同步过来的内容重新写入剪贴板</string>
     <string name="clipboard_history_count">历史显示数量</string>

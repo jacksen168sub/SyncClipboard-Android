@@ -71,9 +71,9 @@ class ClipboardSyncTileService : TileService() {
 
         // 更新磁贴状态
         qsTile?.apply {
-            state = Tile.STATE_ACTIVE    // 可点击状态
+            state = Tile.STATE_INACTIVE  // 默认关闭状态
             label = "发送剪贴板"         // 磁贴文字
-            icon = Icon.createWithResource(this@ClipboardSyncTileService, android.R.drawable.ic_menu_upload)
+            icon = Icon.createWithResource(this@ClipboardSyncTileService, R.drawable.ic_tile_sync)
             updateTile()
         }
     }
