@@ -1,6 +1,6 @@
 # 📋 SyncClipboard Android
 
-> 基于SyncClipboard api开发的安卓客户端,使用AI coding娱乐的副产物,不过还是有在维护的,自己也有在使用
+> 基于SyncClipboard api开发的安卓客户端,使用AI coding娱乐的副产物.
 
 使用[SyncClipboard](https://github.com/Jeric-X/SyncClipboard/) 作为服务端
 
@@ -11,6 +11,7 @@
 <img src="https://github.com/user-attachments/assets/c6fdef0f-b788-44bb-8325-e86843a3e1fd" width="250px">
 <img src="https://github.com/user-attachments/assets/09d545a1-2476-45ab-80bf-574c0746b5ba" width="250px">
 
+由于本人换新设备后就没有去获取Root了, 又因此该项目在这些未Root的设备上并不算比较好用, 就去使用 [Jeric-X](https://github.com/Jeric-X/) 佬自己维护的安卓客户端\([syncclipboard-mobile](https://github.com/Jeric-X/syncclipboard-mobile)\)了, 本项目就延缓甚至停止新功能的开发, 优先度较高的新功能会考虑先开发, 优先度较低的新功能可能将不会考虑开发。今后将多以bug修复为主, 直至本人再次使用上已Root的主机设备。
 
 ## ✨ 主要功能
 
@@ -125,7 +126,7 @@ chmod +x gradlew.sh
 
 ### 注意事项
 
-1. 由于安卓系统限制,在安卓10及以上的系统应用无法在后台读取剪贴板,但可以使用基于Root权限的工具(Magisk/Xposed)解除应用后台读取剪贴版的权限,如[Riru-ClipboardWhitelist](https://github.com/Kr328/Riru-ClipboardWhitelist) / [Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)。由于在安卓13及以上的系统应用必须由用户手动授权才被允许访问系统日志(剪贴板),也可以使用Xposed自动为应用授权访问系统日志的权限,如[DisableLogRequest/禁用日志访问请求](https://github.com/QueallyTech/DisableLogRequest) ,项目推荐搭配[Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)使用
+1. 由于安卓系统限制,在安卓10及以上的系统应用无法在后台读取剪贴板,但可以使用基于Root权限的工具(Magisk/Xposed)解除应用后台读取剪贴版的权限,如[Riru-ClipboardWhitelist](https://github.com/Kr328/Riru-ClipboardWhitelist) / [Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)。项目推荐搭配[Clipboard Whitelist](https://modules.lsposed.org/module/io.github.tehcneko.clipboardwhitelist)使用
 
 ### 项目结构
 
